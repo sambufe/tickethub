@@ -7,11 +7,12 @@ import { googleSearchFirstUrl } from '@/lib/google-search';
 const API_TIMEOUT_MS = 10_000;
 
 interface TPListing {
-  p?: number;    // price (no-fee — this is all-in)
-  sid?: string;  // section code
-  lid?: string;  // section label
-  r?: string;    // row
-  q?: number;    // quantity
+  p?: number;     // price (no-fee — this is all-in)
+  sid?: string;   // section code
+  lid?: string;   // section label
+  r?: string;     // row
+  q?: number;     // total tickets in listing
+  sp?: number[];  // allowed purchase quantities (e.g. [4,2,1] = can buy 4, 2, or 1)
 }
 
 interface TPPayload {
@@ -67,7 +68,13 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       const price = Number(t.p ?? 0);
       if (!price) continue;
       const quantity = Number(t.q ?? 1);
-      if (quantity > 0 && quantity < qty) continue; // qty filter
+      // `sp` lists the exact quantities a buyer may purchase from this listing.
+      // A listing with q=3 and sp=[3,1] can be bought as 3 or 1 — NOT as 2.
+      // TickPick does not allow partial purchases unless the seller opted in via splits.
+      // If sp is absent, require an exact quantity match as a safe default.
+      const allowedQtys = t.sp ?? [];
+      const canBuy = allowedQtys.length > 0 ? allowedQtys.includes(qty) : quantity === qty;
+      if (!canBuy) continue;
       listings.push({
         platform: 'TickPick',
         section: String(t.lid ?? t.sid ?? '').trim(),
