@@ -37,6 +37,10 @@ function fmt(n: number): string {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
+function fmtCeil(n: number): string {
+  return Math.ceil(n).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+}
+
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diffMs / 60000);
@@ -271,7 +275,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                     </td>
                     <td className="px-4 py-3.5">
                       <span className={`font-bold text-base ${i === 0 ? 'text-green-700' : 'text-slate-900'}`}>
-                        {fmt(t.all_in_price)}
+                        {fmtCeil(t.all_in_price)}
                       </span>
                       {i === 0 && (
                         <span className="ml-1.5 text-xs font-medium text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">
@@ -312,7 +316,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                   </span>
                   <div className="text-right">
                     <span className={`font-bold text-xl ${i === 0 ? 'text-green-700' : 'text-slate-900'}`}>
-                      {fmt(t.all_in_price)}
+                      {fmtCeil(t.all_in_price)}
                     </span>
                     {i === 0 && <span className="block text-xs text-green-600 font-medium">Best price</span>}
                   </div>
