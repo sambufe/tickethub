@@ -4,7 +4,7 @@ import { SourceResult, TicketListing } from './types';
 import { newFastPage } from '@/lib/browser';
 
 const API_TIMEOUT_MS = 10_000;
-const EXTRA_FACETS_WAIT_MS = 1_500;
+const FACETS_SETTLE_MS = 400; // max gap between consecutive facets responses
 
 interface SectionFacet {
   section: string;
@@ -73,7 +73,16 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
 
     try {
       await firstFacetPromise;
-      await page.waitForTimeout(EXTRA_FACETS_WAIT_MS);
+      // Wait for burst of facets responses to settle rather than sleeping a fixed amount
+      let settleTimer: ReturnType<typeof setTimeout>;
+      await new Promise<void>((resolve) => {
+        const reset = () => {
+          clearTimeout(settleTimer);
+          settleTimer = setTimeout(resolve, FACETS_SETTLE_MS);
+        };
+        page.on('response', (r: PlaywrightResponse) => { if (isFacetsUrl(r.url())) reset(); });
+        reset(); // start the timer immediately after first facet
+      });
     } catch {
       return { platform: 'Ticketmaster', listings: [], error: 'Listings API timed out (10s)' };
     }
