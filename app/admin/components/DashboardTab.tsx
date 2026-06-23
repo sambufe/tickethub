@@ -21,6 +21,11 @@ export default function DashboardTab({ password }: Props) {
   const [platformCheckedAt, setPlatformCheckedAt] = useState<Date | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
 
+  // Browser restart state
+  const [browserRestarting, setBrowserRestarting] = useState(false);
+  const [browserMsg, setBrowserMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const browserMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // SeatGeek cookie state
   const [sgCookieSet, setSgCookieSet] = useState<boolean | null>(null);
   const [sgCookieInput, setSgCookieInput] = useState('');
@@ -47,6 +52,28 @@ export default function DashboardTab({ password }: Props) {
   }, [password]);
 
   useEffect(() => { loadData(); loadCookieStatus(); }, [loadData, loadCookieStatus]);
+
+  const restartBrowser = () => {
+    setBrowserRestarting(true);
+    setBrowserMsg(null);
+    fetch('/api/admin/cleanup', {
+      method: 'POST',
+      headers: { 'x-admin-password': password },
+    })
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; error?: string }) => {
+        setBrowserMsg(d.ok
+          ? { ok: true, text: 'Browser restarted.' }
+          : { ok: false, text: d.error ?? 'Restart failed' }
+        );
+      })
+      .catch(() => setBrowserMsg({ ok: false, text: 'Network error' }))
+      .finally(() => {
+        setBrowserRestarting(false);
+        if (browserMsgTimer.current) clearTimeout(browserMsgTimer.current);
+        browserMsgTimer.current = setTimeout(() => setBrowserMsg(null), 5000);
+      });
+  };
 
   const saveSgCookie = () => {
     if (!sgCookieInput.trim()) return;
@@ -161,13 +188,27 @@ export default function DashboardTab({ password }: Props) {
       <Section
         title="Platform Health"
         action={
-          <button
-            onClick={checkPlatforms}
-            disabled={statusLoading}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:text-slate-300 transition-colors"
-          >
-            {statusLoading ? 'Checking…' : platformStatuses ? 'Refresh' : 'Check now'}
-          </button>
+          <div className="flex items-center gap-3">
+            {browserMsg && (
+              <span className={`text-xs ${browserMsg.ok ? 'text-green-600' : 'text-red-600'}`}>
+                {browserMsg.text}
+              </span>
+            )}
+            <button
+              onClick={restartBrowser}
+              disabled={browserRestarting}
+              className="text-xs font-medium text-slate-500 hover:text-slate-700 disabled:text-slate-300 transition-colors"
+            >
+              {browserRestarting ? 'Restarting…' : 'Restart browser'}
+            </button>
+            <button
+              onClick={checkPlatforms}
+              disabled={statusLoading}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:text-slate-300 transition-colors"
+            >
+              {statusLoading ? 'Checking…' : platformStatuses ? 'Refresh' : 'Check now'}
+            </button>
+          </div>
         }
       >
         {!platformStatuses && !statusLoading && (

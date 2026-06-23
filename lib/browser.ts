@@ -9,7 +9,12 @@ const BLOCKED_RESOURCE_TYPES = new Set(['image', 'font', 'stylesheet', 'media'])
 const BLOCKED_DOMAIN_PATTERNS = /google-analytics|googletagmanager|doubleclick|googlesyndication|facebook\.com\/tr|hotjar|segment\.io|amplitude\.com|newrelic|mixpanel/;
 
 async function getBrowser(): Promise<Browser> {
-  if (global.__pw_browser?.isConnected()) return global.__pw_browser;
+  if (global.__pw_browser) {
+    if (global.__pw_browser.isConnected()) return global.__pw_browser;
+    // Previous instance crashed or was disconnected — close it before relaunching
+    await global.__pw_browser.close().catch(() => {});
+    global.__pw_browser = undefined;
+  }
   global.__pw_browser = await chromium.launch({
     headless: true,
     args: [
@@ -20,6 +25,33 @@ async function getBrowser(): Promise<Browser> {
   });
   return global.__pw_browser;
 }
+
+/** Close the browser singleton cleanly (no-op if already closed). */
+export async function closeBrowser(): Promise<void> {
+  if (global.__pw_browser) {
+    await global.__pw_browser.close().catch(() => {});
+    global.__pw_browser = undefined;
+  }
+}
+
+/** Kill and relaunch the browser singleton — call this if scrapers start timing out. */
+export async function restartBrowser(): Promise<void> {
+  await closeBrowser();
+  await getBrowser();
+}
+
+// Close the browser on clean server shutdown so Chromium doesn't linger
+process.once('exit', () => {
+  global.__pw_browser?.close().catch(() => {});
+});
+process.once('SIGINT', () => {
+  global.__pw_browser?.close().catch(() => {});
+  process.exit(0);
+});
+process.once('SIGTERM', () => {
+  global.__pw_browser?.close().catch(() => {});
+  process.exit(0);
+});
 
 async function buildContext(): Promise<BrowserContext> {
   const browser = await getBrowser();
