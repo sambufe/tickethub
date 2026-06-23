@@ -42,7 +42,11 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
     return { platform: 'StubHub', listings: [], error: 'No StubHub URL stored — add via admin panel' };
   }
 
-  const pageUrl = storedUrl.replace(/\/+$/, '') + '/';
+  // Build a quantity-aware URL so StubHub's server returns listings for the right qty.
+  // Also strips any stale ?quantity= param already in the stored URL.
+  const parsedUrl = new URL(storedUrl);
+  parsedUrl.searchParams.set('quantity', String(qty));
+  const pageUrl = parsedUrl.toString();
 
   const { page, context } = await newPage();
   try {
