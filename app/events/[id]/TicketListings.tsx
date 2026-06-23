@@ -251,7 +251,6 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                   <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">Row</th>
                   <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">Qty</th>
                   <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">Listed</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">Est. Fees</th>
                   <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">All-In</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -269,12 +268,9 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                     <td className="px-4 py-3.5 text-slate-500 text-xs">
                       {t.quantity > 0 ? t.quantity : <span className="text-slate-300">—</span>}
                     </td>
-                    <td className="px-4 py-3.5 text-slate-700">{fmt(t.listed_price)}</td>
-                    <td className="px-4 py-3.5 text-slate-500">
-                      {t.estimated_fees > 0 ? `+${fmt(t.estimated_fees)}` : <span className="text-slate-300">—</span>}
-                    </td>
+                    <td className="px-4 py-3.5 text-slate-500">{fmt(t.listed_price)}</td>
                     <td className="px-4 py-3.5">
-                      <span className={`font-bold text-base ${i === 0 ? 'text-green-700' : 'text-slate-900'}`}>
+                      <span className={`font-extrabold text-xl ${i === 0 ? 'text-green-700' : 'text-slate-900'}`}>
                         {fmtCeil(t.all_in_price)}
                       </span>
                       {i === 0 && (
@@ -326,9 +322,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                   <div><p className="text-xs text-slate-400">Row</p><p className="text-slate-700">{t.row || '—'}</p></div>
                   <div><p className="text-xs text-slate-400">Qty</p><p className="text-slate-700">{t.quantity > 0 ? t.quantity : '—'}</p></div>
                 </div>
-                <p className="text-xs text-slate-500 mb-3">
-                  {fmt(t.listed_price)}{t.estimated_fees > 0 ? ` + ${fmt(t.estimated_fees)} est. fees` : ''}
-                </p>
+                <p className="text-xs text-slate-400 mb-3">Listed {fmt(t.listed_price)}</p>
                 {t.url && (
                   <a
                     href={t.url}
