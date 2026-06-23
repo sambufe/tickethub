@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { EventResult } from '@/lib/types';
 import { generateCanonicalId } from '@/lib/canonical-id';
 
@@ -11,17 +11,10 @@ interface Props {
   onAdded: (eventResultId: string) => void;
 }
 
-type Status = 'loading' | 'found' | 'not_found' | 'multiple' | 'error';
-
-interface PlatformRow {
+interface PlatformEntry {
   key: string;
   name: string;
-  status: Status;
-  url: string | null;
-  editedUrl: string;
-  editing: boolean;
-  candidates?: Array<{ url: string; label: string }>;
-  error?: string;
+  url: string;
 }
 
 const PLATFORMS: { key: string; name: string }[] = [
@@ -46,139 +39,33 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function truncate(url: string, max = 60): string {
-  return url.length > max ? url.slice(0, max) + '…' : url;
-}
-
 export default function EventConfirmModal({ event, password, onClose, onAdded }: Props) {
-  const [platforms, setPlatforms] = useState<PlatformRow[]>([]);
+  const [platforms, setPlatforms] = useState<PlatformEntry[]>(
+    PLATFORMS.map((p) => ({ ...p, url: '' }))
+  );
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   const canonicalId =
     event?.venue && event?.event_date
       ? generateCanonicalId(event.venue, event.event_date)
       : null;
 
-  // Fire all 7 platform searches when modal opens
-  useEffect(() => {
-    if (!event) return;
-
-    // Cancel any in-flight requests from a previous event
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-
-    setPlatforms(
-      PLATFORMS.map((p) => ({
-        ...p,
-        status: 'loading',
-        url: null,
-        editedUrl: '',
-        editing: false,
-      }))
-    );
-    setAddError(null);
-
-    const body = {
-      title: event.title,
-      artist: event.artist,
-      venue: event.venue,
-      city: event.city,
-      state: event.state,
-      event_date: event.event_date,
-      ticketmaster_id: event.ticketmaster_id,
-      seatgeek_id: event.seatgeek_id,
-      source_url: event.source_url,
-    };
-
-    PLATFORMS.forEach(({ key }) => {
-      fetch('/api/admin/platform-search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
-        body: JSON.stringify({ platform: key, ...body }),
-        signal: ac.signal,
-      })
-        .then((r) => r.json())
-        .then((result: { url: string | null; found: boolean; candidates?: Array<{ url: string; label: string }>; error?: string }) => {
-          setPlatforms((prev) =>
-            prev.map((p) =>
-              p.key === key
-                ? {
-                    ...p,
-                    status: result.found ? 'found' : result.candidates?.length ? 'multiple' : 'not_found',
-                    url: result.url,
-                    editedUrl: result.url ?? '',
-                    candidates: result.candidates,
-                    error: result.error,
-                  }
-                : p
-            )
-          );
-        })
-        .catch((err) => {
-          if ((err as Error).name === 'AbortError') return;
-          setPlatforms((prev) =>
-            prev.map((p) =>
-              p.key === key
-                ? { ...p, status: 'error', url: null, error: String(err) }
-                : p
-            )
-          );
-        });
-    });
-
-    return () => { ac.abort(); };
-  }, [event, password]);
-
   if (!event) return null;
 
-  const allDone = platforms.every((p) => p.status !== 'loading');
-  const foundCount = platforms.filter((p) => p.status === 'found' || p.editedUrl).length;
-
-  const toggleEdit = (key: string) => {
-    setPlatforms((prev) =>
-      prev.map((p) => (p.key === key ? { ...p, editing: !p.editing } : p))
-    );
+  const setUrl = (key: string, val: string) => {
+    setPlatforms((prev) => prev.map((p) => (p.key === key ? { ...p, url: val } : p)));
   };
 
-  const setEditedUrl = (key: string, val: string) => {
-    setPlatforms((prev) => prev.map((p) => (p.key === key ? { ...p, editedUrl: val } : p)));
-  };
-
-  const selectCandidate = (key: string, url: string) => {
-    setPlatforms((prev) =>
-      prev.map((p) =>
-        p.key === key ? { ...p, status: 'found', url, editedUrl: url, candidates: undefined } : p
-      )
-    );
-  };
-
-  const saveEdit = (key: string) => {
-    setPlatforms((prev) =>
-      prev.map((p) => {
-        if (p.key !== key) return p;
-        const hasUrl = p.editedUrl.trim().length > 0;
-        return {
-          ...p,
-          editing: false,
-          url: hasUrl ? p.editedUrl.trim() : p.url,
-          status: hasUrl ? 'found' : p.status,
-        };
-      })
-    );
-  };
+  const filledCount = platforms.filter((p) => p.url.trim()).length;
 
   const handleAdd = async () => {
     setAdding(true);
     setAddError(null);
 
-    // Build platform_urls from final state (prefer editedUrl, fall back to url)
     const platform_urls: Record<string, string | null> = {};
     for (const p of platforms) {
-      const finalUrl = p.editedUrl.trim() || p.url;
-      platform_urls[p.key] = finalUrl || null;
+      platform_urls[p.key] = p.url.trim() || null;
     }
 
     try {
@@ -251,38 +138,46 @@ export default function EventConfirmModal({ event, password, onClose, onAdded }:
           </div>
         </div>
 
-        {/* Platform coverage */}
+        {/* Manual URL entry */}
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
-              Platform Coverage
+              Platform URLs
             </h3>
-            {!allDone && (
-              <span className="text-xs text-slate-400">Searching all platforms…</span>
-            )}
-            {allDone && (
-              <span className="text-xs text-slate-500">
-                {foundCount} of {platforms.length} found
-              </span>
-            )}
+            <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-medium">
+              Manual mode
+            </span>
           </div>
 
           <div className="space-y-2">
             {platforms.map((p) => (
-              <PlatformRow
-                key={p.key}
-                row={p}
-                onToggleEdit={() => toggleEdit(p.key)}
-                onUrlChange={(val) => setEditedUrl(p.key, val)}
-                onSaveEdit={() => saveEdit(p.key)}
-                onSelectCandidate={(url) => selectCandidate(p.key, url)}
-              />
+              <div key={p.key} className="flex items-center gap-3 py-1">
+                <div className="w-28 flex-shrink-0">
+                  <span className="text-sm font-medium text-slate-700">{p.name}</span>
+                </div>
+                <div className="w-4 flex-shrink-0 text-center">
+                  {p.url.trim() ? (
+                    <span className="text-green-500 text-sm font-bold">✓</span>
+                  ) : (
+                    <span className="text-slate-200 text-sm font-bold">—</span>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  value={p.url}
+                  onChange={(e) => setUrl(p.key, e.target.value)}
+                  placeholder={`Paste ${p.name} event URL…`}
+                  className="flex-1 text-xs text-slate-900 rounded border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 placeholder:text-slate-300"
+                />
+              </div>
             ))}
           </div>
 
           <p className="text-xs text-slate-400 mt-3">
-            Paste a URL manually for any platform not found automatically.
-            Vivid Seats search may take up to 30 seconds.
+            Paste URLs for the platforms you want to track. Leave blank to skip.
+            {filledCount > 0 && (
+              <span className="ml-1 text-slate-500">{filledCount} of {platforms.length} filled.</span>
+            )}
           </p>
         </div>
 
@@ -312,109 +207,3 @@ export default function EventConfirmModal({ event, password, onClose, onAdded }:
   );
 }
 
-function PlatformRow({
-  row,
-  onToggleEdit,
-  onUrlChange,
-  onSaveEdit,
-  onSelectCandidate,
-}: {
-  row: PlatformRow;
-  onToggleEdit: () => void;
-  onUrlChange: (val: string) => void;
-  onSaveEdit: () => void;
-  onSelectCandidate: (url: string) => void;
-}) {
-  const isLoading = row.status === 'loading';
-  const isFound = row.status === 'found';
-  const isMultiple = row.status === 'multiple';
-
-  return (
-    <div className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0">
-      {/* Status icon */}
-      <div className="w-5 flex-shrink-0 mt-0.5">
-        {isLoading ? (
-          <svg className="animate-spin h-4 w-4 text-indigo-400" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-          </svg>
-        ) : isFound ? (
-          <span className="text-green-500 text-sm font-bold">✓</span>
-        ) : isMultiple ? (
-          <span className="text-amber-500 text-sm font-bold">?</span>
-        ) : (
-          <span className="text-slate-300 text-sm font-bold">—</span>
-        )}
-      </div>
-
-      {/* Platform name */}
-      <div className="w-28 flex-shrink-0">
-        <span className="text-sm font-medium text-slate-700">{row.name}</span>
-      </div>
-
-      {/* URL / status / edit */}
-      <div className="flex-1 min-w-0">
-        {isLoading ? (
-          <span className="text-xs text-slate-400">Searching…</span>
-        ) : row.editing ? (
-          <div className="flex gap-2">
-            <input
-              type="url"
-              value={row.editedUrl}
-              onChange={(e) => onUrlChange(e.target.value)}
-              placeholder="Paste event URL…"
-              className="flex-1 text-xs text-slate-900 rounded border border-slate-300 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400 placeholder:text-slate-400"
-              autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && onSaveEdit()}
-            />
-            <button
-              onClick={onSaveEdit}
-              className="text-xs text-indigo-600 font-medium px-2 py-1 rounded border border-indigo-300 hover:bg-indigo-50"
-            >
-              Save
-            </button>
-          </div>
-        ) : isMultiple && row.candidates ? (
-          <div className="space-y-1">
-            <p className="text-xs text-amber-600 font-medium mb-1">{row.candidates.length} matches — pick one:</p>
-            {row.candidates.map((c) => (
-              <button
-                key={c.url}
-                onClick={() => onSelectCandidate(c.url)}
-                className="block w-full text-left text-xs text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded px-1.5 py-1 truncate"
-                title={c.url}
-              >
-                {c.label}
-              </button>
-            ))}
-            <button onClick={onToggleEdit} className="text-xs text-slate-400 hover:text-slate-600 mt-1">
-              Paste URL instead
-            </button>
-          </div>
-        ) : isFound || row.editedUrl ? (
-          <div className="flex items-center gap-2">
-            <a
-              href={row.editedUrl || row.url || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-indigo-600 hover:underline truncate max-w-xs"
-              title={row.editedUrl || row.url || ''}
-            >
-              {truncate(row.editedUrl || row.url || '')}
-            </a>
-            <button onClick={onToggleEdit} className="text-xs text-slate-400 hover:text-slate-600 flex-shrink-0">
-              Edit
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">{row.error ?? 'Not found'}</span>
-            <button onClick={onToggleEdit} className="text-xs text-indigo-500 hover:text-indigo-700 flex-shrink-0 font-medium">
-              Add URL
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
