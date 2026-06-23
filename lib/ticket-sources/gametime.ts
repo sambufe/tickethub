@@ -44,7 +44,7 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
     return { platform: 'Gametime', listings: [], error: 'No Gametime URL stored — add via admin panel' };
   }
 
-  const eventId = storedUrl.match(/\/events\/([a-f0-9]+)\/?$/)?.[1];
+  const eventId = storedUrl.match(/\/events\/([a-f0-9]+)/)?.[1];
   if (!eventId) {
     return { platform: 'Gametime', listings: [], error: 'Could not extract event ID from Gametime URL' };
   }
