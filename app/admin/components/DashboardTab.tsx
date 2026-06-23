@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { DashboardStats, CoverageEntry, CacheStats } from '@/app/api/admin/dashboard/route';
 import type { PlatformStatus } from '@/app/api/admin/platform-status/route';
 
@@ -21,6 +21,13 @@ export default function DashboardTab({ password }: Props) {
   const [platformCheckedAt, setPlatformCheckedAt] = useState<Date | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
 
+  // SeatGeek cookie state
+  const [sgCookieSet, setSgCookieSet] = useState<boolean | null>(null);
+  const [sgCookieInput, setSgCookieInput] = useState('');
+  const [sgCookieSaving, setSgCookieSaving] = useState(false);
+  const [sgCookieMsg, setSgCookieMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const sgMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const loadData = useCallback(() => {
     setDataError(null);
     fetch('/api/admin/dashboard', { headers: { 'x-admin-password': password } })
@@ -32,7 +39,41 @@ export default function DashboardTab({ password }: Props) {
       .catch(() => setDataError('Failed to load dashboard data.'));
   }, [password]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const loadCookieStatus = useCallback(() => {
+    fetch('/api/admin/config', { headers: { 'x-admin-password': password } })
+      .then((r) => r.json())
+      .then((d: { seatgeekCookieSet?: boolean }) => setSgCookieSet(d.seatgeekCookieSet ?? false))
+      .catch(() => setSgCookieSet(false));
+  }, [password]);
+
+  useEffect(() => { loadData(); loadCookieStatus(); }, [loadData, loadCookieStatus]);
+
+  const saveSgCookie = () => {
+    if (!sgCookieInput.trim()) return;
+    setSgCookieSaving(true);
+    setSgCookieMsg(null);
+    fetch('/api/admin/config', {
+      method: 'POST',
+      headers: { 'x-admin-password': password, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'SEATGEEK_DATADOME_COOKIE', value: sgCookieInput.trim() }),
+    })
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; error?: string }) => {
+        if (d.ok) {
+          setSgCookieSet(true);
+          setSgCookieInput('');
+          setSgCookieMsg({ ok: true, text: 'Cookie saved. Restart the server to pick up the new value.' });
+        } else {
+          setSgCookieMsg({ ok: false, text: d.error ?? 'Save failed' });
+        }
+      })
+      .catch(() => setSgCookieMsg({ ok: false, text: 'Network error' }))
+      .finally(() => {
+        setSgCookieSaving(false);
+        if (sgMsgTimer.current) clearTimeout(sgMsgTimer.current);
+        sgMsgTimer.current = setTimeout(() => setSgCookieMsg(null), 6000);
+      });
+  };
 
   const checkPlatforms = () => {
     setStatusLoading(true);
@@ -63,6 +104,59 @@ export default function DashboardTab({ password }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* SeatGeek Cookie */}
+      <Section
+        title="SeatGeek Cookie"
+        subtitle="DataDome cookie required for the SeatGeek scraper. Expires after ~7 days."
+      >
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm">
+            {sgCookieSet === null ? (
+              <span className="text-slate-400 text-xs">Checking…</span>
+            ) : sgCookieSet ? (
+              <>
+                <span className="text-green-600">✅</span>
+                <span className="text-slate-700 font-medium">Configured</span>
+              </>
+            ) : (
+              <>
+                <span className="text-red-500">❌</span>
+                <span className="text-slate-700 font-medium">Not set</span>
+              </>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={sgCookieInput}
+              onChange={(e) => setSgCookieInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveSgCookie()}
+              placeholder="Paste datadome cookie value…"
+              className="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            <button
+              onClick={saveSgCookie}
+              disabled={sgCookieSaving || !sgCookieInput.trim()}
+              className="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg disabled:opacity-40 transition-colors whitespace-nowrap"
+            >
+              {sgCookieSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+
+          {sgCookieMsg && (
+            <p className={`text-xs ${sgCookieMsg.ok ? 'text-green-700' : 'text-red-600'}`}>
+              {sgCookieMsg.text}
+            </p>
+          )}
+
+          <p className="text-xs text-slate-400">
+            Cookie expires after 7 days. Refresh: open SeatGeek.com in Chrome → solve CAPTCHA if shown →
+            DevTools → Application → Cookies → seatgeek.com → copy the <code className="font-mono">datadome</code> value.
+          </p>
+        </div>
+      </Section>
+
       {/* Platform Health */}
       <Section
         title="Platform Health"

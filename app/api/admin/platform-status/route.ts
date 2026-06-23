@@ -32,23 +32,22 @@ async function checkTicketmaster(): Promise<PlatformStatus> {
   }
 }
 
-async function checkSeatGeek(): Promise<PlatformStatus> {
-  const id = process.env.SEATGEEK_CLIENT_ID;
-  if (!id || id === 'your_client_id_here') {
-    return { platform: 'SeatGeek', type: 'api', status: 'unconfigured', message: 'SEATGEEK_CLIENT_ID not set' };
+function checkSeatGeek(): PlatformStatus {
+  const cookie = process.env.SEATGEEK_DATADOME_COOKIE;
+  if (!cookie) {
+    return {
+      platform: 'SeatGeek',
+      type: 'scraper',
+      status: 'unconfigured',
+      message: 'SEATGEEK_DATADOME_COOKIE not set — add via Admin → Dashboard',
+    };
   }
-  try {
-    const res = await safeFetch(
-      `https://api.seatgeek.com/2/events?client_id=${id}&type=concert&per_page=1`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (!res) return { platform: 'SeatGeek', type: 'api', status: 'error', message: 'Request timed out' };
-    if (res.status === 401 || res.status === 403) return { platform: 'SeatGeek', type: 'api', status: 'error', message: 'Invalid client ID' };
-    if (!res.ok) return { platform: 'SeatGeek', type: 'api', status: 'error', message: `API returned ${res.status}` };
-    return { platform: 'SeatGeek', type: 'api', status: 'ok', message: 'Client ID valid' };
-  } catch (err) {
-    return { platform: 'SeatGeek', type: 'api', status: 'error', message: String(err) };
-  }
+  return {
+    platform: 'SeatGeek',
+    type: 'scraper',
+    status: 'ok',
+    message: 'DataDome cookie configured (expires ~7 days from when it was set)',
+  };
 }
 
 function checkStubHub(): PlatformStatus {
@@ -64,11 +63,11 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const [tm, sg] = await Promise.all([checkTicketmaster(), checkSeatGeek()]);
+  const tm = await checkTicketmaster();
 
   const statuses: PlatformStatus[] = [
     tm,
-    sg,
+    checkSeatGeek(),
     checkStubHub(),
     { platform: 'Vivid Seats', type: 'scraper', status: 'ok', message: 'Playwright scraper active' },
     { platform: 'AXS', type: 'scraper', status: 'unconfigured', message: 'Cloudflare blocks automated access — manual link only' },
