@@ -1,6 +1,7 @@
 import { CatalogEvent, parsePlatformUrls } from '@/lib/types';
 import { SourceResult, TicketListing } from './types';
 import { googleSearchFirstUrl } from '@/lib/google-search';
+import { normalizeSection } from '@/lib/utils/normalize-section';
 
 const API_TIMEOUT_MS = 10_000;
 const MOBILE_API = 'https://mobile.gametime.co/v1/listings';
@@ -88,7 +89,7 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
 
     listings.push({
       platform: 'Gametime',
-      section: [t.section_group, t.section].filter(Boolean).join(' '),
+      section: normalizeSection([t.section_group, t.section].filter(Boolean).join(' ')),
       row: t.row,
       quantity: t.seats.length,
       listed_price,

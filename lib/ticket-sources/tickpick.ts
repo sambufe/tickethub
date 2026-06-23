@@ -3,6 +3,7 @@ import { CatalogEvent, parsePlatformUrls } from '@/lib/types';
 import { SourceResult, TicketListing } from './types';
 import { newPage } from '@/lib/browser';
 import { googleSearchFirstUrl } from '@/lib/google-search';
+import { normalizeSection } from '@/lib/utils/normalize-section';
 
 const API_TIMEOUT_MS = 10_000;
 
@@ -77,7 +78,7 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       if (!canBuy) continue;
       listings.push({
         platform: 'TickPick',
-        section: String(t.lid ?? t.sid ?? '').trim(),
+        section: normalizeSection(String(t.lid ?? t.sid ?? '')),
         row: String(t.r ?? '').trim(),
         quantity,
         listed_price: price,

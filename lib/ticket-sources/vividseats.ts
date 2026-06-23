@@ -3,6 +3,7 @@ import { CatalogEvent, parsePlatformUrls } from '@/lib/types';
 import { TicketListing, SourceResult } from './types';
 import { newFastPage } from '@/lib/browser';
 import { googleSearchFirstUrl } from '@/lib/google-search';
+import { normalizeSection } from '@/lib/utils/normalize-section';
 
 const API_TIMEOUT_MS = 10_000;
 
@@ -41,7 +42,7 @@ function normalizeListings(tickets: VSTicket[], eventPageUrl: string, qty: numbe
     if (!listed || !allIn) continue;
     results.push({
       platform: 'Vivid Seats',
-      section: String(t.sectionName ?? t.s ?? '').trim(),
+      section: normalizeSection(String(t.sectionName ?? t.s ?? '')),
       row: String(t.row ?? t.r ?? '').trim(),
       quantity,
       listed_price: listed,

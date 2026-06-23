@@ -2,6 +2,7 @@ import { Response as PlaywrightResponse } from 'playwright';
 import { CatalogEvent, parsePlatformUrls } from '@/lib/types';
 import { SourceResult, TicketListing } from './types';
 import { newFastPage } from '@/lib/browser';
+import { normalizeSection } from '@/lib/utils/normalize-section';
 
 const API_TIMEOUT_MS = 10_000;
 const FACETS_SETTLE_MS = 400; // max gap between consecutive facets responses
@@ -121,7 +122,7 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       const allInPrice = totalPriceMap.get(offerId) ?? listedPrice;
       listings.push({
         platform: 'Ticketmaster',
-        section: facet.section ?? '',
+        section: normalizeSection(facet.section ?? ''),
         row: facet.row ?? '',
         quantity: count,
         listed_price: listedPrice,
