@@ -5,6 +5,7 @@ import { fetchListings as fromVividSeats } from './vividseats';
 import { fetchListings as fromTickPick } from './tickpick';
 import { fetchListings as fromGametime } from './gametime';
 import { fetchListings as fromStubHub } from './stubhub';
+import { fetchListings as fromSeatGeek } from './seatgeek';
 
 export interface AggregatedResult {
   listings: TicketListing[];
@@ -18,6 +19,7 @@ export async function fetchAllListings(event: CatalogEvent, qty = 2): Promise<Ag
     fromTickPick(event, qty),
     fromGametime(event, qty),
     fromStubHub(event, qty),
+    fromSeatGeek(event, qty),
   ]);
 
   const sources: SourceResult[] = settled.map((r) =>

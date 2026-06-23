@@ -100,6 +100,8 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       timeout: API_TIMEOUT_MS,
     });
 
+    const bodyText = await res.text();
+
     if (res.status() === 403) {
       return {
         platform: 'SeatGeek',
@@ -113,7 +115,7 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
 
     let payload: SGPayload;
     try {
-      payload = await res.json() as SGPayload;
+      payload = JSON.parse(bodyText) as SGPayload;
     } catch {
       return { platform: 'SeatGeek', listings: [], error: 'Failed to parse listing JSON' };
     }
