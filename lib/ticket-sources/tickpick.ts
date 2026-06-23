@@ -9,8 +9,9 @@ const API_TIMEOUT_MS = 10_000;
 
 interface TPListing {
   p?: number;     // price (no-fee — this is all-in)
-  sid?: string;   // section code
-  lid?: string;   // section label
+  sid?: string;   // section code (e.g. "C")
+  lid?: string;   // section label (e.g. "Reserved")
+  mk?: string;    // marker key encoding section+row (e.g. "s:c r:ff")
   r?: string;     // row
   q?: number;     // total tickets in listing
   sp?: number[];  // allowed purchase quantities (e.g. [4,2,1] = can buy 4, 2, or 1)
@@ -78,7 +79,7 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       if (!canBuy) continue;
       listings.push({
         platform: 'TickPick',
-        section: normalizeSection(String(t.lid ?? t.sid ?? '')),
+        section: normalizeSection(String(t.sid ?? t.lid ?? '')),
         row: String(t.r ?? '').trim(),
         quantity,
         listed_price: price,
