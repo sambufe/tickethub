@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getDb } from '@/lib/db';
+import { sendAlertConfirmation } from '@/lib/email';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -26,12 +27,20 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
-  const event = db.prepare('SELECT id FROM events WHERE id = ?').get(event_id);
+  const event = db.prepare('SELECT id, title FROM events WHERE id = ?').get(event_id) as { id: number; title: string } | null;
   if (!event) return Response.json({ error: 'Event not found' }, { status: 404 });
 
   db.prepare(
     'INSERT INTO price_alerts (event_id, name, email, target_price, quantity) VALUES (?, ?, ?, ?, ?)'
   ).run(Number(event_id), String(name).trim(), String(email).trim().toLowerCase(), price, qty);
+
+  sendAlertConfirmation({
+    to: String(email).trim().toLowerCase(),
+    name: String(name).trim(),
+    eventTitle: event.title,
+    targetPrice: price,
+    quantity: qty,
+  }).catch(() => {});
 
   // Fire PostHog server-side via capture API (no email in properties)
   const phKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;

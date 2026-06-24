@@ -1,10 +1,38 @@
 import { Resend } from 'resend';
 import { TicketListing } from '@/lib/ticket-sources/types';
 
-const FROM_ADDRESS = 'alerts@tickethub.com';
+const FROM_ADDRESS = 'onboarding@resend.dev';
 
 function fmtCeil(n: number): string {
   return `$${Math.ceil(n)}`;
+}
+
+export async function sendAlertConfirmation({
+  to,
+  name,
+  eventTitle,
+  targetPrice,
+  quantity,
+}: {
+  to: string;
+  name: string;
+  eventTitle: string;
+  targetPrice: number;
+  quantity: number;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || apiKey === 'your_key_here') return;
+
+  const resend = new Resend(apiKey);
+  await resend.emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject: `You're on the list — ${eventTitle}`,
+    html: `<p>Hi ${name},</p>
+<p>We'll email you as soon as we find tickets to <strong>${eventTitle}</strong> at <strong>$${Math.ceil(targetPrice)}</strong> or below for <strong>${quantity} ticket${quantity !== 1 ? 's' : ''}</strong>.</p>
+<p>We check prices regularly and will notify you the moment a deal appears.</p>
+<p>— The TicketHub Team</p>`,
+  });
 }
 
 export async function sendPriceAlert({
