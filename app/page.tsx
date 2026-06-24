@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { CatalogEvent } from '@/lib/types';
 import SearchBar from '@/app/components/SearchBar';
 import EventCard from '@/app/components/EventCard';
+import HomepageAnalytics from '@/app/components/HomepageAnalytics';
 
 function getEvents(q?: string): CatalogEvent[] {
   const db = getDb();
@@ -32,6 +33,7 @@ export default async function HomePage({
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <HomepageAnalytics />
       {/* Nav */}
       <header className="bg-slate-900 px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">

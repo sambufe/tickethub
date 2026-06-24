@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import { CatalogEvent } from '@/lib/types';
+import { posthog } from '@/lib/posthog';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return 'Date TBD';
@@ -26,7 +29,14 @@ export default function EventCard({ event }: { event: CatalogEvent }) {
     .join(' · ');
 
   return (
-    <Link href={`/events/${event.id}`} className="group block">
+    <Link
+      href={`/events/${event.id}`}
+      className="group block"
+      onClick={() => posthog.capture('event_card_clicked', {
+        event_id: event.id,
+        event_title: event.title,
+      })}
+    >
       <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
         {/* Image */}
         <div className="relative aspect-video bg-slate-100 overflow-hidden">

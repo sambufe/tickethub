@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { TicketListing } from '@/lib/ticket-sources';
+import { posthog } from '@/lib/posthog';
 
 interface SourceSummary {
   platform: string;
@@ -178,7 +179,10 @@ export default function TicketListings({ eventId }: { eventId: string }) {
           {QTY_OPTIONS.map((n) => (
             <button
               key={n}
-              onClick={() => setSelectedQty(n)}
+              onClick={() => {
+                setSelectedQty(n);
+                posthog.capture('quantity_changed', { event_id: eventId, quantity: n });
+              }}
               className={`w-9 h-9 rounded-lg text-sm font-semibold border transition-colors ${
                 selectedQty === n
                   ? 'bg-indigo-600 text-white border-indigo-600'
@@ -285,6 +289,15 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                           href={t.url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => posthog.capture('get_tickets_clicked', {
+                            event_id: eventId,
+                            platform: t.platform,
+                            section: t.section,
+                            row: t.row,
+                            quantity: t.quantity,
+                            all_in_price: t.all_in_price,
+                            is_best_price: i === 0,
+                          })}
                           className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg px-4 py-1.5 text-xs transition-colors whitespace-nowrap"
                         >
                           Get Tickets
@@ -328,6 +341,15 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                     href={t.url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => posthog.capture('get_tickets_clicked', {
+                      event_id: eventId,
+                      platform: t.platform,
+                      section: t.section,
+                      row: t.row,
+                      quantity: t.quantity,
+                      all_in_price: t.all_in_price,
+                      is_best_price: i === 0,
+                    })}
                     className="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
                   >
                     Get Tickets

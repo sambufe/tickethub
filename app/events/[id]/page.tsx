@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getDb } from '@/lib/db';
 import { CatalogEvent } from '@/lib/types';
 import TicketListings from './TicketListings';
+import EventAnalytics from './EventAnalytics';
 
 function getEvent(id: string): CatalogEvent | null {
   const db = getDb();
@@ -118,6 +119,7 @@ export default async function EventPage({
       <main className="max-w-5xl mx-auto px-6 py-8">
         <TicketListings eventId={String(event.id)} />
       </main>
+      <EventAnalytics event={event} />
     </div>
   );
 }
