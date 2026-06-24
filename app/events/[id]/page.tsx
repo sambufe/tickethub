@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { CatalogEvent } from '@/lib/types';
 import TicketListings from './TicketListings';
 import EventAnalytics from './EventAnalytics';
+import PriceAlertButton from './PriceAlertButton';
 import ChicketsNav from '@/app/components/ChicketsNav';
 import ChicketsFooter from '@/app/components/ChicketsFooter';
 
@@ -98,7 +99,13 @@ export default async function EventPage({
           </div>
         </div>
 
-        <TicketListings eventId={String(event.id)} />
+        {/* Two-column: ticket table left, bid panel right */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1.55fr_.95fr] gap-6 items-start">
+          <TicketListings eventId={String(event.id)} />
+          <div className="lg:sticky lg:top-[76px]">
+            <PriceAlertButton eventId={String(event.id)} eventTitle={event.title} />
+          </div>
+        </div>
       </main>
       <EventAnalytics event={event} />
       <ChicketsFooter />

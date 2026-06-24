@@ -105,6 +105,18 @@ export default function TicketListings({ eventId }: { eventId: string }) {
     [data?.listings, selectedQty]
   );
 
+  // Broadcast current state to PriceAlertButton on request
+  useEffect(() => {
+    const cheapestPrice = displayed[0]?.all_in_price ?? null;
+    const broadcast = () => {
+      window.dispatchEvent(
+        new CustomEvent('tickethub:listings-state', { detail: { qty: selectedQty, cheapestPrice } })
+      );
+    };
+    window.addEventListener('tickethub:request-state', broadcast);
+    return () => window.removeEventListener('tickethub:request-state', broadcast);
+  }, [selectedQty, displayed]);
+
   const sources = data?.sources ?? [];
   const activeSources = sources.filter((s) => s.count > 0);
   const errorSources = sources.filter((s) => s.error && s.count === 0);

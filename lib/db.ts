@@ -38,6 +38,19 @@ export function getDb(): Database.Database {
         event_id INTEGER REFERENCES events(id),
         endpoint TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS price_alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id INTEGER REFERENCES events(id),
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        target_price NUMERIC NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT 1,
+        last_notified_at DATETIME,
+        notified_price NUMERIC
+      );
     `);
 
     // Migrations — try/catch so re-running on an existing DB is safe

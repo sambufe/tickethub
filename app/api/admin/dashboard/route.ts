@@ -59,6 +59,17 @@ export interface CacheStats {
   totalActive: number;
 }
 
+export interface AlertRow {
+  event_title: string;
+  active_count: number;
+  min_target: number;
+}
+
+export interface AlertStats {
+  totalActive: number;
+  byEvent: AlertRow[];
+}
+
 export async function GET(req: NextRequest) {
   if (!verifyAdmin(req)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -134,5 +145,20 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return Response.json({ stats, coverage, cache });
+  // --- Alert stats ---
+  const alertRows = db
+    .prepare(
+      `SELECT e.title as event_title, COUNT(*) as active_count, MIN(a.target_price) as min_target
+       FROM price_alerts a JOIN events e ON e.id = a.event_id
+       WHERE a.is_active = 1
+       GROUP BY a.event_id ORDER BY active_count DESC`
+    )
+    .all() as AlertRow[];
+
+  const alerts: AlertStats = {
+    totalActive: alertRows.reduce((s, r) => s + r.active_count, 0),
+    byEvent: alertRows,
+  };
+
+  return Response.json({ stats, coverage, cache, alerts });
 }

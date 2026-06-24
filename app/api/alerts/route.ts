@@ -1,0 +1,52 @@
+import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export async function POST(req: NextRequest) {
+  let body: Record<string, unknown>;
+  try { body = await req.json(); }
+  catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }); }
+
+  const { event_id, name, email, target_price, quantity } = body;
+
+  if (!event_id || !name || !email || target_price == null || !quantity) {
+    return Response.json({ error: 'All fields are required' }, { status: 400 });
+  }
+  if (typeof email !== 'string' || !EMAIL_RE.test(email)) {
+    return Response.json({ error: 'Invalid email address' }, { status: 400 });
+  }
+  const price = Number(target_price);
+  if (!Number.isFinite(price) || price <= 0) {
+    return Response.json({ error: 'Target price must be greater than 0' }, { status: 400 });
+  }
+  const qty = Number(quantity);
+  if (!Number.isInteger(qty) || qty < 1 || qty > 6) {
+    return Response.json({ error: 'Quantity must be between 1 and 6' }, { status: 400 });
+  }
+
+  const db = getDb();
+  const event = db.prepare('SELECT id FROM events WHERE id = ?').get(event_id);
+  if (!event) return Response.json({ error: 'Event not found' }, { status: 404 });
+
+  db.prepare(
+    'INSERT INTO price_alerts (event_id, name, email, target_price, quantity) VALUES (?, ?, ?, ?, ?)'
+  ).run(Number(event_id), String(name).trim(), String(email).trim().toLowerCase(), price, qty);
+
+  // Fire PostHog server-side via capture API (no email in properties)
+  const phKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  if (phKey && phKey !== 'your_key_here') {
+    fetch('https://us.i.posthog.com/capture/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: phKey,
+        event: 'price_alert_created',
+        distinct_id: 'server',
+        properties: { event_id: Number(event_id), quantity: qty, target_price: price },
+      }),
+    }).catch(() => {});
+  }
+
+  return Response.json({ success: true });
+}

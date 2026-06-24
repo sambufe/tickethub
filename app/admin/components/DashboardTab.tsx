@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import type { DashboardStats, CoverageEntry, CacheStats } from '@/app/api/admin/dashboard/route';
+import type { DashboardStats, CoverageEntry, CacheStats, AlertStats } from '@/app/api/admin/dashboard/route';
 import type { PlatformStatus } from '@/app/api/admin/platform-status/route';
 
 interface Props {
@@ -12,6 +12,7 @@ interface DashboardData {
   stats: DashboardStats;
   coverage: CoverageEntry[];
   cache: CacheStats;
+  alerts: AlertStats;
 }
 
 export default function DashboardTab({ password }: Props) {
@@ -20,6 +21,10 @@ export default function DashboardTab({ password }: Props) {
   const [platformStatuses, setPlatformStatuses] = useState<PlatformStatus[] | null>(null);
   const [platformCheckedAt, setPlatformCheckedAt] = useState<Date | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
+
+  // Alert check state
+  const [alertChecking, setAlertChecking] = useState(false);
+  const [alertCheckResult, setAlertCheckResult] = useState<{ checked: number; notified: number } | null>(null);
 
   // Browser restart state
   const [browserRestarting, setBrowserRestarting] = useState(false);
@@ -75,6 +80,21 @@ export default function DashboardTab({ password }: Props) {
       });
   };
 
+  const runAlertCheck = () => {
+    setAlertChecking(true);
+    setAlertCheckResult(null);
+    fetch('/api/alerts/check', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${password}` },
+    })
+      .then((r) => r.json())
+      .then((d: { checked?: number; notified?: number; error?: string }) => {
+        if (d.checked !== undefined) setAlertCheckResult({ checked: d.checked, notified: d.notified ?? 0 });
+      })
+      .catch(() => {})
+      .finally(() => setAlertChecking(false));
+  };
+
   const saveSgCookie = () => {
     if (!sgCookieInput.trim()) return;
     setSgCookieSaving(true);
@@ -127,7 +147,7 @@ export default function DashboardTab({ password }: Props) {
     return <div className="text-sm text-slate-400 py-8 text-center">Loading…</div>;
   }
 
-  const { stats, coverage, cache } = data;
+  const { stats, coverage, cache, alerts } = data;
 
   return (
     <div className="space-y-6">
@@ -298,6 +318,53 @@ export default function DashboardTab({ password }: Props) {
             );
           })}
         </div>
+      </Section>
+
+      {/* Price Alerts */}
+      <Section
+        title="Price Alerts"
+        action={
+          <div className="flex items-center gap-3">
+            {alertCheckResult && (
+              <span className="text-xs text-slate-500">
+                Checked {alertCheckResult.checked}, sent {alertCheckResult.notified}
+              </span>
+            )}
+            <button
+              onClick={runAlertCheck}
+              disabled={alertChecking}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:text-slate-300 transition-colors"
+            >
+              {alertChecking ? 'Checking…' : 'Run Alert Check'}
+            </button>
+          </div>
+        }
+      >
+        <div className="mb-4">
+          <StatTile label="Active Alerts" value={alerts?.totalActive ?? 0} color={alerts?.totalActive > 0 ? 'indigo' : undefined} />
+        </div>
+        {alerts?.byEvent?.length > 0 ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left border-b border-slate-100">
+                <th className="pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Event</th>
+                <th className="pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Alerts</th>
+                <th className="pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Lowest Target</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {alerts.byEvent.map((row) => (
+                <tr key={row.event_title}>
+                  <td className="py-2 text-slate-700 text-sm">{row.event_title}</td>
+                  <td className="py-2 text-slate-600 text-sm text-right">{row.active_count}</td>
+                  <td className="py-2 text-slate-600 text-sm text-right">${Math.ceil(row.min_target)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-sm text-slate-400">No active alerts.</p>
+        )}
       </Section>
 
       {/* Cache Stats */}
