@@ -43,7 +43,8 @@ export default async function EventPage({
     .join(' · ');
 
   return (
-    <div className="min-h-screen" style={{ background: '#FFF8E1', color: '#1A1A2E' }}>
+    <>
+    <div style={{ background: '#FFF8E1', color: '#1A1A2E' }}>
       <ChicketsNav />
       <main className="max-w-[1240px] mx-auto px-6 sm:px-10 py-7 pb-16">
 
@@ -108,7 +109,8 @@ export default async function EventPage({
         </div>
       </main>
       <EventAnalytics event={event} />
-      <ChicketsFooter />
     </div>
+    <ChicketsFooter />
+    </>
   );
 }

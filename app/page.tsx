@@ -35,7 +35,8 @@ export default async function HomePage({
   const events = getEvents(q);
 
   return (
-    <div className="min-h-screen" style={{ background: '#FFF8E1', color: '#1A1A2E' }}>
+    <>
+    <div style={{ background: '#FFF8E1', color: '#1A1A2E' }}>
       <HomepageAnalytics />
       <ChicketsNav />
 
@@ -173,8 +174,9 @@ export default async function HomePage({
         </div>
       </section>
 
-      <ChicketsFooter />
     </div>
+    <ChicketsFooter />
+    </>
   );
 }
 
