@@ -4,6 +4,8 @@ import { getDb } from '@/lib/db';
 import { CatalogEvent } from '@/lib/types';
 import TicketListings from './TicketListings';
 import EventAnalytics from './EventAnalytics';
+import ChicketsNav from '@/app/components/ChicketsNav';
+import ChicketsFooter from '@/app/components/ChicketsFooter';
 
 function getEvent(id: string): CatalogEvent | null {
   const db = getDb();
@@ -40,86 +42,66 @@ export default async function EventPage({
     .join(' · ');
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Nav */}
-      <header className="bg-slate-900 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="text-xl">🎟</span>
-          <span className="font-bold text-white text-lg tracking-tight">TicketHub</span>
-        </Link>
+    <div className="min-h-screen" style={{ background: '#FFF8E1', color: '#1A1A2E' }}>
+      <ChicketsNav />
+      <main className="max-w-[1240px] mx-auto px-6 sm:px-10 py-7 pb-16">
+
+        {/* Back link */}
         <Link
-          href="/admin"
-          className="text-xs text-slate-400 hover:text-white transition-colors font-medium"
+          href="/"
+          className="inline-flex items-center gap-2 font-bold text-sm text-chk-navy mb-5 no-underline"
         >
-          Admin ↗
+          <span className="w-7 h-7 rounded-full bg-white border-[2.5px] border-chk-navy flex items-center justify-center text-sm">
+            ←
+          </span>
+          All results
         </Link>
-      </header>
 
-      {/* Event hero */}
-      <div className="bg-slate-900 relative overflow-hidden">
-        {event.image_url && (
+        {/* Event header band */}
+        <div
+          className="relative rounded-[22px] overflow-hidden p-7 sm:p-9 mb-7 border-[3px] border-chk-navy"
+          style={{ background: '#FFD93D', boxShadow: '6px 6px 0 #1A1A2E' }}
+        >
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-20 blur-sm scale-105"
-            style={{ backgroundImage: `url(${event.image_url})` }}
+            className="absolute inset-0 opacity-40"
+            style={{
+              backgroundImage: 'radial-gradient(#1A1A2E 1.3px, transparent 1.3px)',
+              backgroundSize: '22px 22px',
+            }}
           />
-        )}
-        <div className="relative max-w-5xl mx-auto px-6 py-10">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-6 transition-colors"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-              <path fillRule="evenodd" d="M9.78 4.22a.75.75 0 010 1.06L7.06 8l2.72 2.72a.75.75 0 11-1.06 1.06L5.47 8.53a.75.75 0 010-1.06l3.25-3.25a.75.75 0 011.06 0z" />
-            </svg>
-            Back to events
-          </Link>
-
-          <div className="flex flex-col sm:flex-row gap-6 items-start">
-            {event.image_url && (
-              <img
-                src={event.image_url}
-                alt={event.title}
-                className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl object-cover flex-shrink-0 shadow-lg"
-              />
-            )}
-            <div className="flex-1 min-w-0">
+          {event.image_url && (
+            <img
+              src={event.image_url}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover opacity-10 blur-sm"
+            />
+          )}
+          <div className="relative flex items-center gap-5 flex-wrap">
+            <div className="flex-1 min-w-[280px]">
+              <div className="inline-block bg-chk-navy text-chk-yellow text-[12px] font-extrabold px-3 py-1 rounded-full mb-3">
+                LIVE PRICES
+              </div>
               {event.artist && event.artist !== event.title && (
-                <p className="text-indigo-400 text-sm font-semibold uppercase tracking-wide mb-1">
+                <p className="text-[14px] font-bold text-chk-navy mb-1" style={{ opacity: 0.7 }}>
                   {event.artist}
                 </p>
               )}
-              <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight mb-3">
+              <h1 className="font-baloo font-extrabold text-[38px] sm:text-[42px] leading-none tracking-tight text-chk-navy mb-3">
                 {event.title}
               </h1>
-              <div className="space-y-1.5">
-                {location && (
-                  <div className="flex items-center gap-2 text-slate-300 text-sm">
-                    <svg className="w-4 h-4 text-slate-500 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
-                      <path fillRule="evenodd" d="M8 1.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9zM2 6a6 6 0 1110.174 4.31l3.008 3.007a.75.75 0 11-1.06 1.06l-3.007-3.007A6 6 0 012 6z" clipRule="evenodd" />
-                    </svg>
-                    {location}
-                  </div>
-                )}
-                {event.event_date && (
-                  <div className="flex items-center gap-2 text-slate-300 text-sm">
-                    <svg className="w-4 h-4 text-slate-500 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
-                      <path d="M5.75 7.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-4.5z" />
-                      <path fillRule="evenodd" d="M2 4.75A2.75 2.75 0 014.75 2h6.5A2.75 2.75 0 0114 4.75v6.5A2.75 2.75 0 0111.25 14h-6.5A2.75 2.75 0 012 11.25v-6.5zm2.75-1.25c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h6.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25h-6.5z" clipRule="evenodd" />
-                    </svg>
-                    {formatDateTime(event.event_date)}
-                  </div>
-                )}
+              <div className="flex gap-4 flex-wrap text-[15px] font-semibold" style={{ color: '#2A2A40' }}>
+                {location && <span>📍 {location}</span>}
+                {event.event_date && <span>🗓️ {formatDateTime(event.event_date)}</span>}
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Ticket listings */}
-      <main className="max-w-5xl mx-auto px-6 py-8">
         <TicketListings eventId={String(event.id)} />
       </main>
       <EventAnalytics event={event} />
+      <ChicketsFooter />
     </div>
   );
 }

@@ -1,33 +1,30 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Baloo_2, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import PostHogProvider from '@/app/components/PostHogProvider';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const baloo2 = Baloo_2({
+  weight: ['600', '700', '800'],
+  variable: '--font-baloo-2',
+  subsets: ['latin'],
+  display: 'swap',
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const plusJakarta = Plus_Jakarta_Sans({
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-jakarta',
+  subsets: ['latin'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: "TicketHub",
-  description: "Concert tickets aggregated across all platforms",
+  title: "chickets — find the cheapest seat",
+  description: "Compare concert ticket prices across every major platform at once.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${baloo2.variable} ${plusJakarta.variable} h-full`}>
       <body className="min-h-full flex flex-col">
         <PostHogProvider>{children}</PostHogProvider>
       </body>

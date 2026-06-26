@@ -18,20 +18,14 @@ interface ApiResponse {
   error?: string;
 }
 
-const PLATFORM_COLORS: Record<string, string> = {
-  ticketmaster: 'bg-blue-100 text-blue-700',
-  seatgeek: 'bg-orange-100 text-orange-700',
-  stubhub: 'bg-red-100 text-red-700',
-  'vivid seats': 'bg-purple-100 text-purple-700',
-  vividseats: 'bg-purple-100 text-purple-700',
-  axs: 'bg-teal-100 text-teal-700',
-  gametime: 'bg-green-100 text-green-700',
-  tickpick: 'bg-amber-100 text-amber-700',
-};
+const BADGE_BG = ['#FFD93D', '#FF6B35', '#E8C200', '#FFD93D', '#FF6B35', '#E8C200', '#FFD93D', '#FF6B35'];
 
-function platformColor(name: string): string {
-  const key = name.toLowerCase().replace(/\s+/g, '');
-  return PLATFORM_COLORS[key] ?? 'bg-slate-100 text-slate-700';
+function badgeColor(index: number): string {
+  return BADGE_BG[index % BADGE_BG.length];
+}
+
+function platformInitial(name: string): string {
+  return name.trim()[0]?.toUpperCase() ?? '?';
 }
 
 function fmt(n: number): string {
@@ -39,7 +33,11 @@ function fmt(n: number): string {
 }
 
 function fmtCeil(n: number): string {
-  return Math.ceil(n).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  return Math.ceil(n).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  });
 }
 
 function timeAgo(iso: string): string {
@@ -51,11 +49,9 @@ function timeAgo(iso: string): string {
   return hrs === 1 ? `1h ${mins % 60}m ago` : `${hrs}h ago`;
 }
 
-/** Keep only the cheapest listing per platform, after quantity filter. */
 function cheapestPerPlatform(listings: TicketListing[], minQty: number): TicketListing[] {
   const best = new Map<string, TicketListing>();
   for (const l of listings) {
-    // quantity=0 means "not specified" (e.g. TM price ranges) — always include
     if (l.quantity > 0 && l.quantity < minQty) continue;
     const key = l.platform.toLowerCase();
     const current = best.get(key);
@@ -74,8 +70,6 @@ export default function TicketListings({ eventId }: { eventId: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [selectedQty, setSelectedQty] = useState(2);
-  // Tracks whether the initial load (triggered by eventId effect) has run,
-  // so the selectedQty effect skips the first render and only fires on changes.
   const isMountedQty = useRef(false);
 
   const load = (force = false, qty = selectedQty) => {
@@ -95,14 +89,12 @@ export default function TicketListings({ eventId }: { eventId: string }) {
       });
   };
 
-  // Initial load when the event page mounts or eventId changes
   useEffect(() => {
     isMountedQty.current = false;
     load(false, selectedQty);
     isMountedQty.current = true;
   }, [eventId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-fetch when qty changes (Gametime returns different listings per qty)
   useEffect(() => {
     if (!isMountedQty.current) return;
     load(false, selectedQty);
@@ -119,250 +111,301 @@ export default function TicketListings({ eventId }: { eventId: string }) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-slate-400">
-        <svg className="animate-spin h-8 w-8 text-indigo-400" viewBox="0 0 24 24" fill="none">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+      <div className="flex flex-col items-center gap-3 py-16">
+        <svg className="animate-spin h-8 w-8" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="#1A1A2E" strokeWidth="4" />
+          <path className="opacity-75" fill="#1A1A2E" d="M4 12a8 8 0 018-8v8z" />
         </svg>
-        <span className="text-sm">Checking all platforms…</span>
+        <span className="text-sm font-semibold text-chk-muted">Checking all platforms…</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Header row */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h2 className="text-lg font-bold text-slate-900">
-            Tickets
-            {displayed.length > 0 && (
-              <span className="text-slate-400 font-normal text-base ml-2">
-                ({displayed.length} platform{displayed.length !== 1 ? 's' : ''})
+      <div
+        className="bg-white rounded-[20px] overflow-hidden border-[3px] border-chk-navy"
+        style={{ boxShadow: '5px 5px 0 #1A1A2E' }}
+      >
+        {/* Card header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b-[3px] border-chk-navy flex-wrap gap-3">
+          <h2 className="font-baloo font-extrabold text-[21px] text-chk-navy m-0">
+            Every site, sorted by total
+          </h2>
+          <div className="flex items-center gap-4">
+            {data?.fetched_at && (
+              <span className="text-[12px] font-semibold text-chk-muted">
+                {data.from_cache ? 'Cached' : 'Updated'} {timeAgo(data.fetched_at)}
               </span>
             )}
-          </h2>
-          {activeSources.length > 0 && (
-            <div className="flex gap-1.5 flex-wrap">
-              {activeSources.map((s) => (
-                <span key={s.platform} className={`text-xs font-medium px-2 py-0.5 rounded-full ${platformColor(s.platform)}`}>
-                  {s.platform}
-                </span>
-              ))}
-            </div>
-          )}
+            <button
+              onClick={() => load(true, selectedQty)}
+              disabled={refreshing}
+              className="text-[12px] font-bold text-chk-orange hover:opacity-70 disabled:text-chk-muted cursor-pointer"
+            >
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+            <button
+              onClick={() => setShowSources((v) => !v)}
+              className="text-[12px] font-semibold text-chk-muted hover:text-chk-navy cursor-pointer"
+            >
+              Sources {showSources ? '↑' : '↓'}
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {data?.fetched_at && (
-            <span className="text-xs text-slate-400">
-              {data.from_cache ? 'Cached' : 'Updated'} {timeAgo(data.fetched_at)}
+        {/* Quantity filter */}
+        <div className="flex items-center gap-3 px-5 py-3 border-b-[2px] flex-wrap" style={{ borderColor: '#EFE6C8' }}>
+          <span className="text-[13px] font-bold text-chk-navy whitespace-nowrap">Tickets together:</span>
+          <div className="flex gap-1.5">
+            {QTY_OPTIONS.map((n) => (
+              <button
+                key={n}
+                onClick={() => {
+                  setSelectedQty(n);
+                  posthog.capture('quantity_changed', { event_id: eventId, quantity: n });
+                }}
+                className={`w-9 h-9 rounded-[9px] text-sm font-bold border-[2px] border-chk-navy transition-colors cursor-pointer ${
+                  selectedQty === n
+                    ? 'bg-chk-navy text-chk-yellow'
+                    : 'bg-white text-chk-navy hover:bg-chk-yellow'
+                }`}
+              >
+                {n === 6 ? '6+' : n}
+              </button>
+            ))}
+          </div>
+          {data?.listings && data.listings.length > 0 && (
+            <span className="text-[11px] font-medium text-chk-muted hidden sm:block">
+              Showing cheapest per platform with ≥{selectedQty} together
             </span>
           )}
-          <button
-            onClick={() => load(true, selectedQty)}
-            disabled={refreshing}
-            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:text-slate-300"
-          >
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
-          <button onClick={() => setShowSources((v) => !v)} className="text-xs text-slate-400 hover:text-slate-600">
-            Sources {showSources ? '↑' : '↓'}
-          </button>
         </div>
-      </div>
 
-      {/* Quantity filter */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Tickets together:</label>
-        <div className="flex gap-1">
-          {QTY_OPTIONS.map((n) => (
-            <button
-              key={n}
-              onClick={() => {
-                setSelectedQty(n);
-                posthog.capture('quantity_changed', { event_id: eventId, quantity: n });
-              }}
-              className={`w-9 h-9 rounded-lg text-sm font-semibold border transition-colors ${
-                selectedQty === n
-                  ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400 hover:text-indigo-600'
-              }`}
-            >
-              {n === 6 ? '6+' : n}
-            </button>
-          ))}
-        </div>
-        {data?.listings && data.listings.length > 0 && (
-          <span className="text-xs text-slate-400">
-            Showing cheapest listing per platform with ≥{selectedQty} tickets together
-          </span>
+        {/* Source status panel */}
+        {showSources && sources.length > 0 && (
+          <div className="px-5 py-4 border-b-[2px]" style={{ borderColor: '#EFE6C8', background: '#FFFBEC' }}>
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-chk-muted mb-2">Source Status</p>
+            <div className="grid grid-cols-1 gap-1.5">
+              {sources.map((s) => (
+                <div key={s.platform} className="flex items-start gap-2 text-[12px]">
+                  <span className={`mt-0.5 font-bold w-4 flex-shrink-0 ${s.count > 0 ? 'text-chk-orange' : 'text-chk-muted'}`}>
+                    {s.count > 0 ? '✓' : '—'}
+                  </span>
+                  <span className={`font-semibold w-28 flex-shrink-0 ${s.count > 0 ? 'text-chk-navy' : 'text-chk-muted'}`}>
+                    {s.platform}
+                    {s.count > 0 && <span className="text-chk-muted font-normal"> ({s.count})</span>}
+                  </span>
+                  {s.error && <span className="text-chk-muted">{s.error}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
-      </div>
 
-      {/* Source status panel */}
-      {showSources && sources.length > 0 && (
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Source Status</p>
-          <div className="grid grid-cols-1 gap-2">
-            {sources.map((s) => (
-              <div key={s.platform} className="flex items-start gap-2 text-xs">
-                <span className={`mt-0.5 font-semibold w-4 flex-shrink-0 ${s.count > 0 ? 'text-green-600' : 'text-slate-300'}`}>
-                  {s.count > 0 ? '✓' : '—'}
-                </span>
-                <span className={`font-medium w-28 flex-shrink-0 ${s.count > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
-                  {s.platform}
-                  {s.count > 0 && <span className="text-slate-400 font-normal"> ({s.count})</span>}
-                </span>
-                {s.error && <span className="text-slate-500">{s.error}</span>}
-              </div>
+        {/* Active sources pills */}
+        {activeSources.length > 0 && !showSources && (
+          <div className="flex gap-2 flex-wrap px-5 pt-3 pb-2">
+            {activeSources.map((s) => (
+              <span
+                key={s.platform}
+                className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-chk-yellow border-[1.5px] border-chk-navy text-chk-navy"
+              >
+                {s.platform}
+              </span>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {displayed.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-400">
-          <p className="text-3xl mb-2">🎟</p>
-          {data?.listings && data.listings.length > 0 ? (
-            <>
-              <p className="text-sm font-medium text-slate-600 mb-1">No listings with {selectedQty}+ tickets together</p>
-              <p className="text-xs">Try selecting a smaller quantity above.</p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-medium mb-1">No ticket listings found</p>
-              {errorSources.length > 0 && (
-                <p className="text-xs">
-                  {errorSources.length} source{errorSources.length !== 1 ? 's' : ''} unavailable —{' '}
-                  <button onClick={() => setShowSources(true)} className="underline">
-                    see details
-                  </button>
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Desktop table */}
-          <div className="hidden md:block bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50 text-left">
-                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">Platform</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">Section</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">Row</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">Qty</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">Listed</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wide">All-In</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {displayed.map((t, i) => (
-                  <tr key={i} className={`hover:bg-slate-50 transition-colors ${i === 0 ? 'bg-green-50/40' : ''}`}>
-                    <td className="px-4 py-3.5">
-                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${platformColor(t.platform)}`}>
-                        {t.platform}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-700">{t.section || '—'}</td>
-                    <td className="px-4 py-3.5 text-slate-700">{t.row || '—'}</td>
-                    <td className="px-4 py-3.5 text-slate-500 text-xs">
-                      {t.quantity > 0 ? t.quantity : <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-500">{fmt(t.listed_price)}</td>
-                    <td className="px-4 py-3.5">
-                      <span className={`font-extrabold text-xl ${i === 0 ? 'text-green-700' : 'text-slate-900'}`}>
-                        {fmtCeil(t.all_in_price)}
-                      </span>
+        {/* Column headers — desktop */}
+        {displayed.length > 0 && (
+          <div
+            className="hidden md:grid px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-chk-muted border-b-[2px]"
+            style={{ gridTemplateColumns: '1.5fr 1.1fr .7fr 1fr auto', gap: '10px', borderColor: '#EFE6C8' }}
+          >
+            <span>Marketplace</span>
+            <span>Section</span>
+            <span>Qty</span>
+            <span>Total / ea</span>
+            <span />
+          </div>
+        )}
+
+        {displayed.length === 0 ? (
+          <div className="px-5 py-10 text-center text-chk-muted">
+            <p className="text-3xl mb-2">🐣</p>
+            {data?.listings && data.listings.length > 0 ? (
+              <>
+                <p className="text-sm font-semibold text-chk-navy mb-1">No listings with {selectedQty}+ tickets together</p>
+                <p className="text-[13px]">Try selecting a smaller quantity above.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-chk-navy mb-1">No ticket listings found</p>
+                {errorSources.length > 0 && (
+                  <p className="text-[13px]">
+                    {errorSources.length} source{errorSources.length !== 1 ? 's' : ''} unavailable —{' '}
+                    <button onClick={() => setShowSources(true)} className="underline cursor-pointer">
+                      see details
+                    </button>
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Desktop rows */}
+            <div className="hidden md:block">
+              {displayed.map((t, i) => (
+                <div
+                  key={i}
+                  className="grid px-5 py-4 items-center border-b-[1.5px]"
+                  style={{
+                    gridTemplateColumns: '1.5fr 1.1fr .7fr 1fr auto',
+                    gap: '10px',
+                    background: i === 0 ? '#FFFBEC' : '#fff',
+                    borderColor: '#F2ECD6',
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="w-[34px] h-[34px] rounded-[9px] border-[2px] border-chk-navy flex items-center justify-center font-baloo font-extrabold text-[15px] text-chk-navy flex-shrink-0"
+                      style={{ background: badgeColor(i) }}
+                    >
+                      {platformInitial(t.platform)}
+                    </span>
+                    <div>
+                      <div className="font-bold text-[14.5px] text-chk-navy">{t.platform}</div>
                       {i === 0 && (
-                        <span className="ml-1.5 text-xs font-medium text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">
-                          Best
+                        <span className="text-[11px] font-extrabold text-white bg-chk-orange px-1.5 py-0.5 rounded-full inline-block mt-0.5">
+                          ★ Best deal
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      {t.url ? (
-                        <a
-                          href={t.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => posthog.capture('get_tickets_clicked', {
-                            event_id: eventId,
-                            platform: t.platform,
-                            section: t.section,
-                            row: t.row,
-                            quantity: t.quantity,
-                            all_in_price: t.all_in_price,
-                            is_best_price: i === 0,
-                          })}
-                          className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg px-4 py-1.5 text-xs transition-colors whitespace-nowrap"
-                        >
-                          Get Tickets
-                        </a>
-                      ) : (
-                        <span className="text-xs text-slate-300">No link</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-3">
-            {displayed.map((t, i) => (
-              <div
-                key={i}
-                className={`bg-white rounded-2xl border p-4 shadow-sm ${i === 0 ? 'border-green-300 bg-green-50/30' : 'border-slate-200'}`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${platformColor(t.platform)}`}>
-                    {t.platform}
-                  </span>
-                  <div className="text-right">
-                    <span className={`font-bold text-xl ${i === 0 ? 'text-green-700' : 'text-slate-900'}`}>
-                      {fmtCeil(t.all_in_price)}
-                    </span>
-                    {i === 0 && <span className="block text-xs text-green-600 font-medium">Best price</span>}
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-sm mb-3">
-                  <div><p className="text-xs text-slate-400">Section</p><p className="text-slate-700">{t.section || '—'}</p></div>
-                  <div><p className="text-xs text-slate-400">Row</p><p className="text-slate-700">{t.row || '—'}</p></div>
-                  <div><p className="text-xs text-slate-400">Qty</p><p className="text-slate-700">{t.quantity > 0 ? t.quantity : '—'}</p></div>
-                </div>
-                <p className="text-xs text-slate-400 mb-3">Listed {fmt(t.listed_price)}</p>
-                {t.url && (
-                  <a
-                    href={t.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => posthog.capture('get_tickets_clicked', {
-                      event_id: eventId,
-                      platform: t.platform,
-                      section: t.section,
-                      row: t.row,
-                      quantity: t.quantity,
-                      all_in_price: t.all_in_price,
-                      is_best_price: i === 0,
-                    })}
-                    className="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
-                  >
-                    Get Tickets
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
 
-      {/* Disclaimer */}
-      <p className="text-xs text-slate-400 text-center pt-2">
+                  <div className="text-[13.5px] font-semibold" style={{ color: '#4A4660' }}>
+                    {[t.section, t.row].filter(Boolean).join(' · ') || '—'}
+                  </div>
+
+                  <div className="text-[13.5px] font-bold text-chk-navy">
+                    {t.quantity > 0 ? t.quantity : '—'}
+                  </div>
+
+                  <div>
+                    <div className="font-baloo font-extrabold text-[19px] text-chk-navy">{fmtCeil(t.all_in_price)}</div>
+                    <div className="text-[11px] font-semibold text-chk-muted">
+                      {t.estimated_fees > 0 ? `$${Math.ceil(t.estimated_fees)} fees` : 'incl. fees'}
+                    </div>
+                  </div>
+
+                  {t.url ? (
+                    <a
+                      href={t.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => posthog.capture('get_tickets_clicked', {
+                        event_id: eventId,
+                        platform: t.platform,
+                        section: t.section,
+                        row: t.row,
+                        quantity: t.quantity,
+                        all_in_price: t.all_in_price,
+                        is_best_price: i === 0,
+                      })}
+                      className={`border-[2.5px] border-chk-navy rounded-[10px] font-baloo font-bold text-[13.5px] px-4 py-2 whitespace-nowrap no-underline hover:opacity-90 transition-opacity ${
+                        i === 0 ? 'bg-chk-orange text-white' : 'bg-chk-yellow text-chk-navy'
+                      }`}
+                    >
+                      View
+                    </a>
+                  ) : (
+                    <span className="text-[12px] text-chk-muted">No link</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y-[2px]" style={{ borderColor: '#F2ECD6' }}>
+              {displayed.map((t, i) => (
+                <div
+                  key={i}
+                  className="p-4"
+                  style={{ background: i === 0 ? '#FFFBEC' : '#fff' }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="w-9 h-9 rounded-[9px] border-[2px] border-chk-navy flex items-center justify-center font-baloo font-extrabold text-[15px] text-chk-navy flex-shrink-0"
+                        style={{ background: badgeColor(i) }}
+                      >
+                        {platformInitial(t.platform)}
+                      </span>
+                      <div>
+                        <div className="font-bold text-[14.5px] text-chk-navy">{t.platform}</div>
+                        {i === 0 && (
+                          <span className="text-[11px] font-extrabold text-white bg-chk-orange px-1.5 py-0.5 rounded-full inline-block mt-0.5">
+                            ★ Best deal
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-baloo font-extrabold text-[22px] text-chk-navy">{fmtCeil(t.all_in_price)}</div>
+                      <div className="text-[11px] font-semibold text-chk-muted">
+                        {t.estimated_fees > 0 ? `$${Math.ceil(t.estimated_fees)} fees` : 'incl. fees'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-sm mb-3">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase text-chk-muted">Section</p>
+                      <p className="font-semibold text-chk-navy">{t.section || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold uppercase text-chk-muted">Row</p>
+                      <p className="font-semibold text-chk-navy">{t.row || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold uppercase text-chk-muted">Qty</p>
+                      <p className="font-semibold text-chk-navy">{t.quantity > 0 ? t.quantity : '—'}</p>
+                    </div>
+                  </div>
+                  {t.url && (
+                    <a
+                      href={t.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => posthog.capture('get_tickets_clicked', {
+                        event_id: eventId,
+                        platform: t.platform,
+                        section: t.section,
+                        row: t.row,
+                        quantity: t.quantity,
+                        all_in_price: t.all_in_price,
+                        is_best_price: i === 0,
+                      })}
+                      className={`block w-full text-center border-[2.5px] border-chk-navy rounded-[12px] font-baloo font-bold text-[15px] py-3 no-underline hover:opacity-90 transition-opacity ${
+                        i === 0 ? 'bg-chk-orange text-white' : 'bg-chk-yellow text-chk-navy'
+                      }`}
+                    >
+                      View →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="px-5 py-3 text-[12.5px] font-semibold text-chk-muted" style={{ background: '#FFFBEC' }}>
+          Prices refresh live · we never mark up a seller&apos;s price. Confirm at checkout.
+        </div>
+      </div>
+
+      <p className="text-xs text-chk-muted text-center pt-1">
         Prices are estimates and may vary at checkout. Confirm the final price on the ticketing platform before purchase.
       </p>
     </div>
