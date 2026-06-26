@@ -86,6 +86,26 @@ export default async function HomePage({
         </div>
       </section>
 
+      {/* NYP slim bar */}
+      <div className="max-w-[1240px] mx-auto px-6 sm:px-10 pt-8 pb-2">
+        <div
+          className="flex items-center gap-4 py-4 px-6 rounded-[16px]"
+          style={{ background: '#1A1A2E', border: '3px solid #1A1A2E', boxShadow: '5px 5px 0 #1A1A2E' }}
+        >
+          <ChicketsMascot size={48} className="flex-shrink-0" />
+          <p className="font-baloo font-extrabold text-white flex-1 m-0" style={{ fontSize: 17 }}>
+            Don&apos;t chase the price. Name it.
+          </p>
+          <Link
+            href="/alerts"
+            className="font-baloo font-bold no-underline flex-shrink-0 rounded-full px-5 py-2"
+            style={{ background: '#FFD93D', color: '#1A1A2E', fontSize: 14, border: '2px solid #FFD93D' }}
+          >
+            Try it →
+          </Link>
+        </div>
+      </div>
+
       {/* Events grid */}
       <section className="max-w-[1240px] mx-auto px-6 sm:px-10 py-14">
         <div className="flex items-end justify-between mb-7 gap-4 flex-wrap">
@@ -122,57 +142,6 @@ export default async function HomePage({
         )}
       </section>
 
-      {/* Name Your Price strip */}
-      <section className="max-w-[1240px] mx-auto px-6 sm:px-10 pb-16">
-        <div className="relative bg-chk-navy rounded-[26px] overflow-hidden p-12 sm:p-14 text-white">
-          <div
-            className="absolute inset-0 opacity-[0.16]"
-            style={{
-              backgroundImage: 'radial-gradient(#FFD93D 1.4px, transparent 1.4px)',
-              backgroundSize: '24px 24px',
-            }}
-          />
-          <div className="relative grid grid-cols-1 sm:grid-cols-[0.8fr_1.2fr] gap-10 items-center">
-            <div className="hidden sm:flex justify-center">
-              <ChicketsMascot size={210} />
-            </div>
-            <div>
-              <div className="inline-block bg-chk-orange text-white font-baloo font-bold text-[13px] px-4 py-1.5 rounded-full mb-4">
-                NAME YOUR PRICE
-              </div>
-              <h2 className="font-baloo font-extrabold text-[36px] sm:text-[38px] leading-tight tracking-tight mb-3">
-                Don&apos;t chase the price.<br />Make it come to you.
-              </h2>
-              <p className="text-[16px] leading-relaxed font-medium mb-6" style={{ color: '#C9C7D6' }}>
-                Tell us what you&apos;d happily pay. We hold your bid against every incoming listing, and the second a seller meets it, you get notified.
-              </p>
-              <div className="flex gap-3 flex-wrap mb-7">
-                {[
-                  { n: '1', title: 'Set your number', desc: 'Pick a target price and how many seats.' },
-                  { n: '2', title: 'We watch the nest', desc: 'Your bid sits live against every new listing.' },
-                  { n: '3', title: 'Match = yours', desc: 'A seller bites, we ping you, done.' },
-                ].map(({ n, title, desc }) => (
-                  <div
-                    key={n}
-                    className="flex-1 min-w-[140px] rounded-[14px] p-4"
-                    style={{ background: 'rgba(255,255,255,.06)', border: '1.5px solid rgba(255,217,61,.4)' }}
-                  >
-                    <div className="font-baloo font-extrabold text-[22px] text-chk-yellow">{n}</div>
-                    <div className="font-bold text-[14.5px] my-1">{title}</div>
-                    <div className="text-[13px] leading-snug" style={{ color: '#A9A7B8' }}>{desc}</div>
-                  </div>
-                ))}
-              </div>
-              <Link
-                href="/"
-                className="inline-block font-baloo font-bold text-[16px] text-chk-navy bg-chk-yellow rounded-[12px] px-6 py-3 no-underline hover:opacity-90 transition-opacity"
-              >
-                Try it on an event →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
 
     </div>
     <ChicketsFooter />

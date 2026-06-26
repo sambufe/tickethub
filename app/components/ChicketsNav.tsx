@@ -27,15 +27,9 @@ export default function ChicketsNav() {
         </svg>
         <span className="font-baloo font-extrabold text-2xl text-chk-navy tracking-tight">chickets</span>
       </Link>
-      <nav className="flex items-center gap-6 sm:gap-8">
-        <Link href="/" className="font-semibold text-sm text-chk-navy hidden sm:block no-underline">Browse</Link>
-        <span className="font-semibold text-sm text-chk-navy hidden sm:block cursor-default">How it works</span>
-        <Link
-          href="/"
-          className="font-baloo font-bold text-sm text-chk-navy bg-chk-yellow rounded-full px-5 py-2 border-[2.5px] border-chk-navy no-underline"
-          style={{ boxShadow: '3px 3px 0 #1A1A2E' }}
-        >
-          Name Your Price
+      <nav className="flex items-center">
+        <Link href="/how-it-works" className="font-semibold text-sm no-underline" style={{ color: '#1A1A2E' }}>
+          How it works
         </Link>
       </nav>
     </header>

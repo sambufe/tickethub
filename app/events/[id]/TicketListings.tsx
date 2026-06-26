@@ -105,18 +105,6 @@ export default function TicketListings({ eventId }: { eventId: string }) {
     [data?.listings, selectedQty]
   );
 
-  // Broadcast current state to PriceAlertButton on request
-  useEffect(() => {
-    const cheapestPrice = displayed[0]?.all_in_price ?? null;
-    const broadcast = () => {
-      window.dispatchEvent(
-        new CustomEvent('tickethub:listings-state', { detail: { qty: selectedQty, cheapestPrice } })
-      );
-    };
-    window.addEventListener('tickethub:request-state', broadcast);
-    return () => window.removeEventListener('tickethub:request-state', broadcast);
-  }, [selectedQty, displayed]);
-
   const sources = data?.sources ?? [];
   const activeSources = sources.filter((s) => s.count > 0);
   const errorSources = sources.filter((s) => s.error && s.count === 0);
@@ -233,7 +221,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
         {displayed.length > 0 && (
           <div
             className="hidden md:grid px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-chk-muted border-b-[2px]"
-            style={{ gridTemplateColumns: '1.5fr 1.1fr .7fr 1fr auto', gap: '10px', borderColor: '#EFE6C8' }}
+            style={{ gridTemplateColumns: '1.8fr 1fr 0.5fr 1fr auto', gap: '10px', borderColor: '#EFE6C8' }}
           >
             <span>Marketplace</span>
             <span>Section</span>
@@ -274,7 +262,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                   key={i}
                   className="grid px-5 py-4 items-center border-b-[1.5px]"
                   style={{
-                    gridTemplateColumns: '1.5fr 1.1fr .7fr 1fr auto',
+                    gridTemplateColumns: '1.8fr 1fr 0.5fr 1fr auto',
                     gap: '10px',
                     background: i === 0 ? '#FFFBEC' : '#fff',
                     borderColor: '#F2ECD6',
@@ -291,7 +279,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                       <div className="font-bold text-[14.5px] text-chk-navy">{t.platform}</div>
                       {i === 0 && (
                         <span className="text-[11px] font-extrabold text-white bg-chk-orange px-1.5 py-0.5 rounded-full inline-block mt-0.5">
-                          ★ Best deal
+                          ★ Best price
                         </span>
                       )}
                     </div>
@@ -359,7 +347,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                         <div className="font-bold text-[14.5px] text-chk-navy">{t.platform}</div>
                         {i === 0 && (
                           <span className="text-[11px] font-extrabold text-white bg-chk-orange px-1.5 py-0.5 rounded-full inline-block mt-0.5">
-                            ★ Best deal
+                            ★ Best price
                           </span>
                         )}
                       </div>
