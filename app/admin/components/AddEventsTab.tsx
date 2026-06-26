@@ -105,7 +105,6 @@ export default function AddEventsTab({ password }: Props) {
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="e.g. Taylor Swift, Coachella…"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
@@ -206,6 +205,14 @@ export default function AddEventsTab({ password }: Props) {
             </svg>
             <span className="text-sm">Searching Ticketmaster + SeatGeek…</span>
           </div>
+        </div>
+      )}
+
+      {!searched && !loading && (
+        <div className="text-center py-16 text-slate-400">
+          <div className="text-4xl mb-3">🔍</div>
+          <p className="text-base font-medium text-slate-500">Search for an event to get started</p>
+          <p className="text-sm mt-1">Enter an artist name or event above and click Search Events</p>
         </div>
       )}
 
