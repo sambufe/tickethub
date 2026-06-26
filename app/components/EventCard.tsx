@@ -27,16 +27,16 @@ export default function EventCard({ event }: { event: CatalogEvent }) {
   return (
     <Link
       href={`/events/${event.id}`}
-      className="block no-underline group"
+      className="block h-full no-underline group"
       onClick={() => posthog.capture('event_card_clicked', { event_id: event.id, event_title: event.title })}
     >
       <div
-        className="bg-white rounded-[18px] overflow-hidden border-[3px] border-chk-navy transition-transform duration-100 hover:-translate-y-0.5"
+        className="h-full flex flex-col bg-white rounded-[18px] overflow-hidden border-[3px] border-chk-navy transition-transform duration-100 hover:-translate-y-0.5"
         style={{ boxShadow: '5px 5px 0 #1A1A2E' }}
       >
-        {/* Header band */}
+        {/* Header band — fixed height, image dominant */}
         <div
-          className="relative h-32 flex items-end p-3.5 border-b-[3px] border-chk-navy overflow-hidden"
+          className="relative h-36 flex-shrink-0 flex items-end p-3.5 border-b-[3px] border-chk-navy overflow-hidden"
           style={{ background: band.bg }}
         >
           {event.image_url && (
@@ -44,21 +44,26 @@ export default function EventCard({ event }: { event: CatalogEvent }) {
               src={event.image_url}
               alt=""
               aria-hidden
-              className="absolute inset-0 w-full h-full object-cover opacity-20 blur-[2px] scale-105"
+              className="absolute inset-0 w-full h-full object-cover opacity-75"
             />
           )}
+          {/* Gradient scrim so genre label stays readable over any image */}
+          <div
+            className="absolute inset-0"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)' }}
+          />
           {event.event_date && (
             <span className="absolute top-3 right-3 bg-white border-[2px] border-chk-navy text-chk-navy text-[11px] font-extrabold px-2.5 py-0.5 rounded-full z-10">
               {formatDate(event.event_date)}
             </span>
           )}
-          <span className="relative font-baloo font-bold text-[13px] z-10" style={{ color: band.text, opacity: 0.9 }}>
+          <span className="relative font-baloo font-bold text-[13px] text-white z-10 drop-shadow">
             {genreLabel}
           </span>
         </div>
 
-        {/* Card body */}
-        <div className="p-4">
+        {/* Card body — grows to fill row height, pushes CTA to bottom */}
+        <div className="flex-1 flex flex-col p-4">
           <h3 className="font-baloo font-bold text-[19px] leading-tight text-chk-navy mb-1.5 line-clamp-2">
             {event.title}
           </h3>
@@ -72,18 +77,20 @@ export default function EventCard({ event }: { event: CatalogEvent }) {
               })}
             </div>
           )}
-          <div className="h-px my-3" style={{ background: '#EFE6C8' }} />
-          <div className="flex items-end justify-between">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#9A8F66' }}>From</div>
-              <div className="font-baloo font-extrabold text-2xl leading-none text-chk-orange">Compare →</div>
-              <div className="text-[11px] font-semibold mt-1" style={{ color: '#9A8F66' }}>tap to compare all sites</div>
+          <div className="mt-auto">
+            <div className="h-px my-3" style={{ background: '#EFE6C8' }} />
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#9A8F66' }}>From</div>
+                <div className="font-baloo font-extrabold text-2xl leading-none text-chk-orange">Compare →</div>
+                <div className="text-[11px] font-semibold mt-1" style={{ color: '#9A8F66' }}>tap to compare all sites</div>
+              </div>
+              <span
+                className="w-9 h-9 rounded-full bg-chk-yellow border-[2.5px] border-chk-navy flex items-center justify-center font-extrabold text-lg text-chk-navy"
+              >
+                →
+              </span>
             </div>
-            <span
-              className="w-9 h-9 rounded-full bg-chk-yellow border-[2.5px] border-chk-navy flex items-center justify-center font-extrabold text-lg text-chk-navy"
-            >
-              →
-            </span>
           </div>
         </div>
       </div>
