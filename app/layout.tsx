@@ -18,7 +18,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "chickets — find the cheapest seat",
+  title: "Chickets",
   description: "Compare concert ticket prices across every major platform at once.",
 };
 

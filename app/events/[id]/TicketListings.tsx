@@ -105,6 +105,19 @@ export default function TicketListings({ eventId }: { eventId: string }) {
     [data?.listings, selectedQty]
   );
 
+  // Broadcast cheapest price so NYPPanel can prefill a suggested value
+  useEffect(() => {
+    const cheapestPrice = displayed[0]?.all_in_price ?? null;
+    const dispatch = () => {
+      window.dispatchEvent(
+        new CustomEvent('tickethub:listings-state', { detail: { qty: selectedQty, cheapestPrice } })
+      );
+    };
+    dispatch();
+    window.addEventListener('tickethub:request-state', dispatch);
+    return () => window.removeEventListener('tickethub:request-state', dispatch);
+  }, [selectedQty, displayed]);
+
   const sources = data?.sources ?? [];
   const activeSources = sources.filter((s) => s.count > 0);
   const errorSources = sources.filter((s) => s.error && s.count === 0);
@@ -200,20 +213,6 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Active sources pills */}
-        {activeSources.length > 0 && !showSources && (
-          <div className="flex gap-2 flex-wrap px-5 pt-3 pb-2">
-            {activeSources.map((s) => (
-              <span
-                key={s.platform}
-                className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-chk-yellow border-[1.5px] border-chk-navy text-chk-navy"
-              >
-                {s.platform}
-              </span>
-            ))}
           </div>
         )}
 

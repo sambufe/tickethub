@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   eventId: string;
@@ -11,29 +11,46 @@ const QTY_OPTIONS = [1, 2, 3, 4, 5, 6];
 const MAX_PRICE = 500;
 
 export default function NYPPanel({ eventId, eventTitle }: Props) {
-  const [price, setPrice] = useState(150);
+  const [price, setPrice] = useState<number | ''>('');
   const [qty, setQty] = useState(2);
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const userEdited = useRef(false);
 
-  const sliderBg = `linear-gradient(to right, #FF6B35 0%, #FF6B35 ${(price / MAX_PRICE) * 100}%, #2A2A48 ${(price / MAX_PRICE) * 100}%, #2A2A48 100%)`;
+  // Listen for cheapest price broadcast from TicketListings and prefill once
+  useEffect(() => {
+    const handleState = (e: Event) => {
+      if (userEdited.current) return;
+      const { cheapestPrice } = (e as CustomEvent<{ qty: number; cheapestPrice: number | null }>).detail;
+      if (cheapestPrice != null) {
+        const suggested = Math.max(1, Math.floor((cheapestPrice * 0.9) / 5) * 5);
+        setPrice(suggested);
+      }
+    };
+    window.addEventListener('tickethub:listings-state', handleState);
+    window.dispatchEvent(new CustomEvent('tickethub:request-state'));
+    return () => window.removeEventListener('tickethub:listings-state', handleState);
+  }, []);
+
+  const numericPrice = typeof price === 'number' ? price : 0;
+  const sliderBg = `linear-gradient(to right, #FF6B35 0%, #FF6B35 ${(numericPrice / MAX_PRICE) * 100}%, #2A2A48 ${(numericPrice / MAX_PRICE) * 100}%, #2A2A48 100%)`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) { setError('Email is required.'); return; }
-    if (price <= 0) { setError('Enter a price above $0.'); return; }
+    if (price === '' || price <= 0) { setError('Enter a price above $0.'); return; }
     setSubmitting(true);
     setError(null);
     try {
       const res = await fetch('/api/alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: Number(eventId), target_price: price, quantity: qty, email: email.trim() }),
+        body: JSON.stringify({ event_id: Number(eventId), target_price: Number(price), quantity: qty, email: email.trim() }),
       });
       const data = await res.json();
-      if (data.ok) {
+      if (data.success) {
         setSuccess(true);
       } else {
         setError(data.error || 'Something went wrong.');
@@ -44,9 +61,6 @@ export default function NYPPanel({ eventId, eventTitle }: Props) {
       setSubmitting(false);
     }
   };
-
-  // eventTitle kept for future use (e.g. confirmation copy)
-  void eventTitle;
 
   return (
     <div
@@ -85,7 +99,7 @@ export default function NYPPanel({ eventId, eventTitle }: Props) {
           </p>
           <p className="font-medium" style={{ color: '#A9A7BF', fontSize: 14, lineHeight: 1.5 }}>
             We&apos;ll email <strong style={{ color: '#fff' }}>{email}</strong> the moment a listing hits{' '}
-            <strong style={{ color: '#FFD93D' }}>${price}</strong> or less for {qty} ticket{qty !== 1 ? 's' : ''}.
+            <strong style={{ color: '#FFD93D' }}>${numericPrice}</strong> or less for {qty} ticket{qty !== 1 ? 's' : ''}.
           </p>
         </div>
       ) : (
@@ -116,7 +130,10 @@ export default function NYPPanel({ eventId, eventTitle }: Props) {
                 max={MAX_PRICE}
                 step={5}
                 value={price}
-                onChange={(e) => setPrice(Math.min(MAX_PRICE, Math.max(0, Number(e.target.value))))}
+                onChange={(e) => {
+                  userEdited.current = true;
+                  setPrice(e.target.value === '' ? '' : Math.min(MAX_PRICE, Math.max(0, Number(e.target.value))));
+                }}
                 className="chk-num"
                 style={{
                   background: 'transparent',
@@ -139,8 +156,11 @@ export default function NYPPanel({ eventId, eventTitle }: Props) {
               min={0}
               max={MAX_PRICE}
               step={5}
-              value={price}
-              onChange={(e) => setPrice(Number(e.target.value))}
+              value={numericPrice}
+              onChange={(e) => {
+                userEdited.current = true;
+                setPrice(Number(e.target.value));
+              }}
               className="chk-range"
               style={{ width: '100%', background: sliderBg }}
             />
