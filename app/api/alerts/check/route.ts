@@ -1,14 +1,11 @@
-// This endpoint should be called on a schedule — once per hour is ideal,
-// timed to run after new ticket cache data is expected (e.g., triggered by
-// a cron job or a webhook from the cache-refresh flow). Call via:
+// Called on a schedule — once per hour after ticket cache refreshes.
 //   POST /api/alerts/check
 //   Authorization: Bearer <ADMIN_PASSWORD>
 
 import { NextRequest } from 'next/server';
 import { getDb } from '@/lib/db';
-import { sendPriceAlert } from '@/lib/email';
+import { sendPriceAlert, PriceMatch } from '@/lib/email';
 import { TicketListing } from '@/lib/ticket-sources/types';
-import { CatalogEvent } from '@/lib/types';
 
 function verifyAdmin(req: NextRequest): boolean {
   const auth = req.headers.get('authorization') ?? '';
@@ -17,16 +14,23 @@ function verifyAdmin(req: NextRequest): boolean {
 
 interface PriceAlert {
   id: number;
-  event_id: number;
+  event_id: number | null;
+  event_ids: string | null;
   name: string;
   email: string;
   target_price: number;
   quantity: number;
 }
 
+interface EventRow {
+  id: number;
+  title: string;
+  event_date: string | null;
+  venue: string | null;
+}
+
 interface CacheRow {
   raw_json: string;
-  fetched_at: string;
 }
 
 interface CachedPayload {
@@ -39,59 +43,74 @@ export async function POST(req: NextRequest) {
   const db = getDb();
 
   const alerts = db
-    .prepare('SELECT * FROM price_alerts WHERE is_active = 1')
+    .prepare('SELECT id, event_id, event_ids, name, email, target_price, quantity FROM price_alerts WHERE is_active = 1')
     .all() as PriceAlert[];
 
   let notified = 0;
 
   for (const alert of alerts) {
-    // Use the most recent cache entry for this event+qty combination
-    const cacheRow = db
-      .prepare(
-        'SELECT raw_json, fetched_at FROM ticket_cache WHERE event_id = ? AND qty = ? ORDER BY fetched_at DESC LIMIT 1'
-      )
-      .get(alert.event_id, alert.quantity) as CacheRow | null;
+    // Resolve the list of event IDs this alert covers
+    let eventIdList: number[] = [];
+    if (alert.event_ids) {
+      try { eventIdList = JSON.parse(alert.event_ids) as number[]; } catch {}
+    }
+    if (eventIdList.length === 0 && alert.event_id != null) {
+      eventIdList = [alert.event_id];
+    }
+    if (eventIdList.length === 0) continue; // general alert with no events — skip
 
-    if (!cacheRow) continue;
+    const allMatches: PriceMatch[] = [];
 
-    let payload: CachedPayload;
-    try { payload = JSON.parse(cacheRow.raw_json) as CachedPayload; }
-    catch { continue; }
+    for (const eid of eventIdList) {
+      const event = db
+        .prepare('SELECT id, title, event_date, venue FROM events WHERE id = ?')
+        .get(eid) as EventRow | null;
+      if (!event) continue;
 
-    const listings: TicketListing[] = payload.listings ?? [];
+      const cacheRow = db
+        .prepare(
+          'SELECT raw_json FROM ticket_cache WHERE event_id = ? AND qty = ? ORDER BY fetched_at DESC LIMIT 1'
+        )
+        .get(eid, alert.quantity) as CacheRow | null;
+      if (!cacheRow) continue;
 
-    // Find listings at or below target for the requested quantity
-    const matches = listings.filter(
-      (l) =>
-        l.all_in_price <= alert.target_price &&
-        (l.quantity === 0 || l.quantity >= alert.quantity)
-    ) as (TicketListing & { url: string })[];
+      let payload: CachedPayload;
+      try { payload = JSON.parse(cacheRow.raw_json) as CachedPayload; }
+      catch { continue; }
 
-    if (matches.length === 0) continue;
+      const listings: TicketListing[] = payload.listings ?? [];
 
-    // Look up event title for the email
-    const event = db
-      .prepare('SELECT title FROM events WHERE id = ?')
-      .get(alert.event_id) as Pick<CatalogEvent, 'title'> | null;
+      const eventMatches = listings.filter(
+        (l) =>
+          l.all_in_price <= alert.target_price &&
+          (l.quantity === 0 || l.quantity >= alert.quantity) &&
+          l.url
+      );
+
+      for (const l of eventMatches) {
+        allMatches.push({
+          eventTitle: event.title,
+          eventDate: event.event_date,
+          venue: event.venue,
+          platform: l.platform,
+          price: l.all_in_price,
+          url: l.url!,
+        });
+      }
+    }
+
+    if (allMatches.length === 0) continue;
 
     try {
-      await sendPriceAlert({
-        to: alert.email,
-        name: alert.name,
-        eventTitle: event?.title ?? 'your event',
-        targetPrice: alert.target_price,
-        quantity: alert.quantity,
-        matches,
-      });
+      await sendPriceAlert(alert.email, alert.target_price, allMatches);
 
-      // Deactivate after one notification — user must re-register
       db.prepare(
         'UPDATE price_alerts SET is_active = 0, last_notified_at = CURRENT_TIMESTAMP, notified_price = ? WHERE id = ?'
-      ).run(matches[0].all_in_price, alert.id);
+      ).run(Math.min(...allMatches.map((m) => m.price)), alert.id);
 
       notified++;
     } catch {
-      // Email failed — leave alert active so it retries next run
+      // Email failed — leave active so it retries next run
     }
   }
 

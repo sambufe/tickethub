@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import ChicketsNav from '@/app/components/ChicketsNav';
 import ChicketsFooter from '@/app/components/ChicketsFooter';
 import ChicketsMascot from '@/app/components/ChicketsMascot';
+import type { CatalogEvent } from '@/lib/types';
 
 const QTY_OPTIONS = [1, 2, 3, 4, 5, 6];
 const DATE_WINDOWS = ['Tonight', 'This Week', 'This Month', 'Next Few Months'] as const;
@@ -21,6 +22,18 @@ export default function AlertsPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const userEdited = useRef(false);
+
+  const [catalog, setCatalog] = useState<CatalogEvent[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    fetch('/api/events')
+      .then((r) => r.json())
+      .then((d: { events: CatalogEvent[] }) => setCatalog(d.events ?? []))
+      .catch(() => setCatalog([]))
+      .finally(() => setCatalogLoading(false));
+  }, []);
 
   const numericPrice = typeof price === 'number' ? price : 0;
   const sliderBg = `linear-gradient(to right, #FF6B35 0%, #FF6B35 ${(numericPrice / MAX_PRICE) * 100}%, #2A2A48 ${(numericPrice / MAX_PRICE) * 100}%, #2A2A48 100%)`;
@@ -42,7 +55,7 @@ export default function AlertsPage() {
           target_price: Number(price),
           quantity: qty,
           date_window: dateWindow,
-          event_id: null,
+          event_ids: selectedEventIds,
         }),
       });
       const data = await res.json();
@@ -233,6 +246,78 @@ export default function AlertsPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Show picker */}
+                <div style={{ marginBottom: 20 }}>
+                  <label className="font-bold" style={labelStyle}>Which shows?</label>
+                  <p style={{ color: '#9CA3AF', fontSize: 12, marginTop: 0, marginBottom: 8 }}>
+                    Check every show you want to track — we&apos;ll send one email when any of them hit your price.
+                  </p>
+                  <div
+                    style={{
+                      maxHeight: 320,
+                      overflowY: 'auto',
+                      border: '2px solid #E5E7EB',
+                      borderRadius: 10,
+                    }}
+                  >
+                    {catalogLoading ? (
+                      <div style={{ padding: '16px', color: '#9CA3AF', fontSize: 13, textAlign: 'center' }}>
+                        Loading shows…
+                      </div>
+                    ) : catalog.length === 0 ? (
+                      <div style={{ padding: '16px', color: '#9CA3AF', fontSize: 13, textAlign: 'center' }}>
+                        No shows in the catalog yet.
+                      </div>
+                    ) : (
+                      catalog.map((ev) => {
+                        const checked = selectedEventIds.includes(ev.id);
+                        const meta = [ev.venue, [ev.city, ev.state].filter(Boolean).join(', '), ev.event_date ? new Date(ev.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null].filter(Boolean).join(' · ');
+                        return (
+                          <div
+                            key={ev.id}
+                            onClick={() =>
+                              setSelectedEventIds((prev) =>
+                                checked ? prev.filter((id) => id !== ev.id) : [...prev, ev.id]
+                              )
+                            }
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 12,
+                              padding: '12px 14px',
+                              cursor: 'pointer',
+                              background: checked ? '#FFFBEC' : '#fff',
+                              borderLeft: checked ? '3px solid #FF6B35' : '3px solid transparent',
+                              borderBottom: '1px solid #F3F4F6',
+                              transition: 'background 0.1s',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              readOnly
+                              checked={checked}
+                              style={{ marginTop: 3, flexShrink: 0, accentColor: '#FF6B35', width: 15, height: 15 }}
+                            />
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1A1A2E', lineHeight: 1.3 }}>
+                                {ev.title}{ev.artist && ev.artist !== ev.title ? ` — ${ev.artist}` : ''}
+                              </div>
+                              {meta && (
+                                <div style={{ fontSize: 12, color: '#6B6450', marginTop: 2 }}>{meta}</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  {selectedEventIds.length > 0 && (
+                    <p style={{ fontSize: 12, color: '#FF6B35', fontWeight: 600, marginTop: 6, marginBottom: 0 }}>
+                      {selectedEventIds.length} show{selectedEventIds.length !== 1 ? 's' : ''} selected
+                    </p>
+                  )}
                 </div>
 
                 {/* Date window */}

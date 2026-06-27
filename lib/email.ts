@@ -1,11 +1,6 @@
 import { Resend } from 'resend';
-import { TicketListing } from '@/lib/ticket-sources/types';
 
 const FROM_ADDRESS = 'onboarding@resend.dev';
-
-function fmtCeil(n: number): string {
-  return `$${Math.ceil(n)}`;
-}
 
 export async function sendAlertConfirmation({
   to,
@@ -31,43 +26,61 @@ export async function sendAlertConfirmation({
     html: `<p>Hi ${name},</p>
 <p>We'll email you as soon as we find tickets to <strong>${eventTitle}</strong> at <strong>$${Math.ceil(targetPrice)}</strong> or below for <strong>${quantity} ticket${quantity !== 1 ? 's' : ''}</strong>.</p>
 <p>We check prices regularly and will notify you the moment a deal appears.</p>
-<p>— The TicketHub Team</p>`,
+<p>— The Chickets Team</p>`,
   });
 }
 
-export async function sendPriceAlert({
-  to,
-  name,
-  eventTitle,
-  targetPrice,
-  quantity,
-  matches,
-}: {
-  to: string;
-  name: string;
+export interface PriceMatch {
   eventTitle: string;
-  targetPrice: number;
-  quantity: number;
-  matches: (TicketListing & { url: string })[];
-}): Promise<void> {
+  eventDate: string | null;
+  venue: string | null;
+  platform: string;
+  price: number;
+  url: string;
+}
+
+function fmtPrice(n: number): string {
+  return `$${Math.ceil(n)}`;
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return 'Date TBD';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export async function sendPriceAlert(
+  to: string,
+  targetPrice: number,
+  matches: PriceMatch[]
+): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey === 'your_key_here') {
     throw new Error('RESEND_API_KEY not configured');
   }
 
   const resend = new Resend(apiKey);
+  const n = matches.length;
+  const subject = `🐣 Chickets: ${n} show${n !== 1 ? 's' : ''} hit your price target`;
 
   const rows = matches
-    .sort((a, b) => a.all_in_price - b.all_in_price)
+    .sort((a, b) => a.price - b.price)
     .map(
       (m) => `
       <tr>
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b">${m.platform}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#475569">${m.section || '—'}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#475569">${m.row || '—'}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#16a34a">${fmtCeil(m.all_in_price)}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">
-          <a href="${m.url}" style="background:#4f46e5;color:#fff;text-decoration:none;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600">Get Tickets →</a>
+        <td style="padding:14px 16px;border-bottom:1px solid #2A2A48;vertical-align:top">
+          <div style="font-weight:700;color:#fff;font-size:14px">${m.eventTitle}</div>
+          <div style="color:#8E8CA0;font-size:12px;margin-top:3px">${fmtDate(m.eventDate)}${m.venue ? ` · ${m.venue}` : ''}</div>
+        </td>
+        <td style="padding:14px 16px;border-bottom:1px solid #2A2A48;color:#A9A7BF;font-size:13px;vertical-align:top;white-space:nowrap">
+          ${m.platform}
+        </td>
+        <td style="padding:14px 16px;border-bottom:1px solid #2A2A48;vertical-align:top;white-space:nowrap">
+          <span style="font-weight:800;color:#FFD93D;font-size:17px">${fmtPrice(m.price)}</span>
+          <div style="color:#8E8CA0;font-size:11px;margin-top:1px">all-in</div>
+        </td>
+        <td style="padding:14px 16px;border-bottom:1px solid #2A2A48;vertical-align:top;text-align:right">
+          <a href="${m.url}" style="display:inline-block;background:#FF6B35;color:#fff;text-decoration:none;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700;white-space:nowrap">Get Tickets →</a>
         </td>
       </tr>`
     )
@@ -77,52 +90,42 @@ export async function sendPriceAlert({
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)">
-    <div style="background:#1e293b;padding:28px 32px">
-      <p style="margin:0;color:#818cf8;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">TicketHub Price Alert</p>
-      <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:700">Tickets are at your price! 🎟</h1>
+<body style="margin:0;padding:0;background:#0F0F1C;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <div style="max-width:620px;margin:40px auto;background:#1A1A2E;border-radius:16px;overflow:hidden;border:2px solid #2A2A48">
+
+    <!-- Header -->
+    <div style="background:#FFD93D;padding:28px 32px">
+      <p style="margin:0;color:#1A1A2E;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Chickets · Price Alert</p>
+      <h1 style="margin:8px 0 0;color:#1A1A2E;font-size:22px;font-weight:800">
+        🐣 ${n} show${n !== 1 ? 's' : ''} hit your target of ${fmtPrice(targetPrice)}
+      </h1>
     </div>
 
-    <div style="padding:28px 32px">
-      <p style="margin:0 0 6px;color:#475569;font-size:15px">Hi ${name},</p>
-      <p style="margin:0 0 20px;color:#1e293b;font-size:15px">
-        We found <strong>${matches.length} listing${matches.length !== 1 ? 's' : ''}</strong> for
-        <strong>${eventTitle}</strong> at or below your target of <strong>${fmtCeil(targetPrice)}</strong>
-        for <strong>${quantity} ticket${quantity !== 1 ? 's' : ''}</strong>.
-      </p>
-
-      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;font-size:14px">
+    <!-- Table -->
+    <div style="padding:0 0 8px">
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
         <thead>
-          <tr style="background:#f8fafc">
-            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0">Platform</th>
-            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0">Section</th>
-            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0">Row</th>
-            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0">All-In</th>
-            <th style="padding:10px 12px;border-bottom:1px solid #e2e8f0"></th>
+          <tr style="background:#12122A">
+            <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6B6480;text-transform:uppercase;letter-spacing:.06em">Show</th>
+            <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6B6480;text-transform:uppercase;letter-spacing:.06em">Platform</th>
+            <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6B6480;text-transform:uppercase;letter-spacing:.06em">Price</th>
+            <th style="padding:10px 16px"></th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
+    </div>
 
-      <p style="margin:24px 0 0;padding:16px;background:#f0fdf4;border-radius:8px;color:#166534;font-size:13px;border:1px solid #bbf7d0">
-        Prices change fast — grab your tickets before they're gone!
+    <!-- Footer note -->
+    <div style="padding:16px 32px 28px;border-top:1px solid #2A2A48">
+      <p style="margin:0;color:#4A4860;font-size:12px">
+        Prices change fast — grab your seats before they're gone. This alert has been deactivated after sending.
       </p>
     </div>
 
-    <div style="padding:16px 32px 28px;border-top:1px solid #f1f5f9">
-      <p style="margin:0;color:#94a3b8;font-size:12px">
-        This alert has been deactivated. Reply to this email if you'd like to reactivate it.
-      </p>
-    </div>
   </div>
 </body>
 </html>`;
 
-  await resend.emails.send({
-    from: FROM_ADDRESS,
-    to,
-    subject: `🎟 Tickets for ${eventTitle} are at your price!`,
-    html,
-  });
+  await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
 }
