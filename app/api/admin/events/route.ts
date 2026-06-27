@@ -11,10 +11,11 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const db = getDb();
-  const events = db
-    .prepare('SELECT * FROM events ORDER BY event_date ASC')
-    .all() as CatalogEvent[];
+  const db = await getDb();
+  const events = (await db.execute({
+    sql: 'SELECT * FROM events ORDER BY event_date ASC',
+    args: [],
+  })).rows as unknown as CatalogEvent[];
 
   return Response.json({ events });
 }
@@ -45,33 +46,28 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'title is required' }, { status: 400 });
   }
 
-  const db = getDb();
-  const result = db
-    .prepare(
-      `INSERT INTO events
-         (title, artist, venue, city, state, event_date,
-          ticketmaster_id, seatgeek_id, source_url, image_url,
-          canonical_id, platform_urls)
-       VALUES
-         (@title, @artist, @venue, @city, @state, @event_date,
-          @ticketmaster_id, @seatgeek_id, @source_url, @image_url,
-          @canonical_id, @platform_urls)`
-    )
-    .run({
-      title: body.title,
-      artist: body.artist ?? null,
-      venue: body.venue ?? null,
-      city: body.city ?? null,
-      state: body.state ?? null,
-      event_date: body.event_date ?? null,
-      ticketmaster_id: body.ticketmaster_id ?? null,
-      seatgeek_id: body.seatgeek_id ?? null,
-      source_url: body.source_url ?? null,
-      image_url: body.image_url ?? null,
-      canonical_id: body.canonical_id ?? null,
-      platform_urls: body.platform_urls ? JSON.stringify(body.platform_urls) : null,
-    });
+  const db = await getDb();
+  const result = await db.execute({
+    sql: `INSERT INTO events
+            (title, artist, venue, city, state, event_date,
+             ticketmaster_id, seatgeek_id, source_url, image_url,
+             canonical_id, platform_urls)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      body.title,
+      body.artist ?? null,
+      body.venue ?? null,
+      body.city ?? null,
+      body.state ?? null,
+      body.event_date ?? null,
+      body.ticketmaster_id ?? null,
+      body.seatgeek_id ?? null,
+      body.source_url ?? null,
+      body.image_url ?? null,
+      body.canonical_id ?? null,
+      body.platform_urls ? JSON.stringify(body.platform_urls) : null,
+    ],
+  });
 
-  return Response.json({ ok: true, id: result.lastInsertRowid });
+  return Response.json({ ok: true, id: Number(result.lastInsertRowid) });
 }
-

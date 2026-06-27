@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'Quantity must be between 1 and 6' }, { status: 400 });
   }
 
-  // Resolve event ID list — prefer event_ids array, fall back to single event_id
   let eventIdList: number[] = [];
   if (Array.isArray(event_ids) && event_ids.length > 0) {
     eventIdList = event_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0);
@@ -34,29 +33,27 @@ export async function POST(req: NextRequest) {
     eventIdList = [Number(event_id)];
   }
 
-  const db = getDb();
+  const db = await getDb();
 
-  // Validate all provided event IDs exist
   for (const eid of eventIdList) {
-    const exists = db.prepare('SELECT id FROM events WHERE id = ?').get(eid);
+    const exists = (await db.execute({ sql: 'SELECT id FROM events WHERE id = ?', args: [eid] })).rows[0];
     if (!exists) return Response.json({ error: `Event ${eid} not found` }, { status: 404 });
   }
 
   const nameStr = String(name).trim();
   const emailStr = String(email).trim().toLowerCase();
   const dateWindowStr = typeof date_window === 'string' ? date_window : null;
-  // Store single event_id for backward compat with existing single-event alerts
   const singleEventId = eventIdList.length > 0 ? eventIdList[0] : null;
   const eventIdsJson = eventIdList.length > 0 ? JSON.stringify(eventIdList) : null;
 
-  // Snapshot lowest market price at time of signup
   let marketPrice: number | null = null;
   let platformsChecked = 0;
 
   if (singleEventId) {
-    const cacheRows = db.prepare(
-      'SELECT raw_json FROM ticket_cache WHERE event_id = ? ORDER BY fetched_at DESC LIMIT 10'
-    ).all(singleEventId) as { raw_json: string }[];
+    const cacheRows = (await db.execute({
+      sql: 'SELECT raw_json FROM ticket_cache WHERE event_id = ? ORDER BY fetched_at DESC LIMIT 10',
+      args: [singleEventId],
+    })).rows as unknown as { raw_json: string }[];
 
     const seenPlatforms = new Set<string>();
     let lowestSeen = Infinity;
@@ -77,15 +74,15 @@ export async function POST(req: NextRequest) {
     platformsChecked = seenPlatforms.size;
   }
 
-  db.prepare(
-    'INSERT INTO price_alerts (event_id, event_ids, name, email, target_price, quantity, date_window, market_price_at_signup, platforms_checked_at_signup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(singleEventId, eventIdsJson, nameStr, emailStr, price, qty, dateWindowStr, marketPrice, platformsChecked);
+  await db.execute({
+    sql: 'INSERT INTO price_alerts (event_id, event_ids, name, email, target_price, quantity, date_window, market_price_at_signup, platforms_checked_at_signup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    args: [singleEventId, eventIdsJson, nameStr, emailStr, price, qty, dateWindowStr, marketPrice, platformsChecked],
+  });
 
-  // Confirmation email — use first event title or generic
   let eventTitle = 'any upcoming event';
   if (singleEventId) {
-    const event = db.prepare('SELECT title FROM events WHERE id = ?').get(singleEventId) as { title: string } | null;
-    if (event) eventTitle = eventIdList.length > 1 ? `${event.title} + ${eventIdList.length - 1} more` : event.title;
+    const eventRow = ((await db.execute({ sql: 'SELECT title FROM events WHERE id = ?', args: [singleEventId] })).rows[0] ?? null) as unknown as { title: string } | null;
+    if (eventRow) eventTitle = eventIdList.length > 1 ? `${eventRow.title} + ${eventIdList.length - 1} more` : eventRow.title;
   }
 
   sendAlertConfirmation({ to: emailStr, name: nameStr, eventTitle, targetPrice: price, quantity: qty }).catch(() => {});

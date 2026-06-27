@@ -75,10 +75,9 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const db = getDb();
+  const db = await getDb();
 
-  // --- Event stats ---
-  const allEvents = db.prepare('SELECT * FROM events').all() as CatalogEvent[];
+  const allEvents = (await db.execute({ sql: 'SELECT * FROM events', args: [] })).rows as unknown as CatalogEvent[];
   const now = new Date();
   const in30d = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
@@ -100,7 +99,6 @@ export async function GET(req: NextRequest) {
     stats.byRegion[region] = (stats.byRegion[region] ?? 0) + 1;
   }
 
-  // --- Platform coverage ---
   const coverageMap: Record<string, number> = {};
   for (const key of PLATFORM_KEYS) coverageMap[key] = 0;
 
@@ -120,22 +118,18 @@ export async function GET(req: NextRequest) {
     total: allEvents.length,
   }));
 
-  // --- Cache stats ---
   const activeEvents = allEvents.filter((e) => e.is_active);
-  const cacheRows = db
-    .prepare(
-      `SELECT event_id, MAX(fetched_at) as latest_fetch
-       FROM ticket_cache
-       GROUP BY event_id`
-    )
-    .all() as Array<{ event_id: number; latest_fetch: string }>;
+  const cacheRows = (await db.execute({
+    sql: `SELECT event_id, MAX(fetched_at) as latest_fetch FROM ticket_cache GROUP BY event_id`,
+    args: [],
+  })).rows as unknown as Array<{ event_id: number; latest_fetch: string }>;
 
-  const fetchMap = new Map(cacheRows.map((r) => [r.event_id, r.latest_fetch]));
+  const fetchMap = new Map(cacheRows.map((r) => [Number(r.event_id), r.latest_fetch]));
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
   const cache: CacheStats = { fresh: 0, stale: 0, none: 0, totalActive: activeEvents.length };
   for (const e of activeEvents) {
-    const latest = fetchMap.get(e.id);
+    const latest = fetchMap.get(Number(e.id));
     if (!latest) {
       cache.none++;
     } else if (new Date(latest) >= oneHourAgo) {
@@ -145,18 +139,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // --- Alert stats ---
-  const alertRows = db
-    .prepare(
-      `SELECT e.title as event_title, COUNT(*) as active_count, MIN(a.target_price) as min_target
-       FROM price_alerts a JOIN events e ON e.id = a.event_id
-       WHERE a.is_active = 1
-       GROUP BY a.event_id ORDER BY active_count DESC`
-    )
-    .all() as AlertRow[];
+  const alertRows = (await db.execute({
+    sql: `SELECT e.title as event_title, COUNT(*) as active_count, MIN(a.target_price) as min_target
+          FROM price_alerts a JOIN events e ON e.id = a.event_id
+          WHERE a.is_active = 1
+          GROUP BY a.event_id ORDER BY active_count DESC`,
+    args: [],
+  })).rows as unknown as AlertRow[];
 
   const alerts: AlertStats = {
-    totalActive: alertRows.reduce((s, r) => s + r.active_count, 0),
+    totalActive: alertRows.reduce((s, r) => s + Number(r.active_count), 0),
     byEvent: alertRows,
   };
 

@@ -10,27 +10,25 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const db = getDb();
+  const db = await getDb();
 
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
-  const usageRow = db
-    .prepare(
-      `SELECT COALESCE(SUM(credits_used), 0) as total
-       FROM api_usage
-       WHERE called_at >= ?`
-    )
-    .get(startOfMonth.toISOString()) as { total: number };
+  const usageRow = ((await db.execute({
+    sql: `SELECT COALESCE(SUM(credits_used), 0) as total FROM api_usage WHERE called_at >= ?`,
+    args: [startOfMonth.toISOString()],
+  })).rows[0] ?? {}) as unknown as { total: number };
 
-  const eventsRow = db
-    .prepare('SELECT COUNT(*) as total, SUM(is_active) as active FROM events')
-    .get() as { total: number; active: number };
+  const eventsRow = ((await db.execute({
+    sql: 'SELECT COUNT(*) as total, SUM(is_active) as active FROM events',
+    args: [],
+  })).rows[0] ?? {}) as unknown as { total: number; active: number };
 
   const MONTHLY_CREDITS = 10000;
   const CREDITS_PER_EVENT = 12;
-  const creditsUsed = usageRow.total;
+  const creditsUsed = Number(usageRow.total);
   const creditsRemaining = MONTHLY_CREDITS - creditsUsed;
   const estimatedCapacity = Math.floor(creditsRemaining / CREDITS_PER_EVENT);
 
@@ -38,8 +36,8 @@ export async function GET(req: NextRequest) {
     credits_used_month: creditsUsed,
     credits_total: MONTHLY_CREDITS,
     credits_remaining: creditsRemaining,
-    events_tracked: eventsRow.total,
-    events_active: eventsRow.active,
+    events_tracked: Number(eventsRow.total),
+    events_active: Number(eventsRow.active),
     estimated_capacity: estimatedCapacity,
   });
 }

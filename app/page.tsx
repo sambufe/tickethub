@@ -9,13 +9,13 @@ import ChicketsNav from '@/app/components/ChicketsNav';
 import ChicketsFooter from '@/app/components/ChicketsFooter';
 import ChicketsMascot from '@/app/components/ChicketsMascot';
 
-function getLowestPrices(): Map<number, { price: number; platformCount: number }> {
-  const db = getDb();
-  // Most recent cache entry per event (MAX id = latest insert)
-  const rows = db.prepare(`
-    SELECT event_id, raw_json FROM ticket_cache
-    WHERE id IN (SELECT MAX(id) FROM ticket_cache GROUP BY event_id)
-  `).all() as { event_id: number; raw_json: string }[];
+async function getLowestPrices(): Promise<Map<number, { price: number; platformCount: number }>> {
+  const db = await getDb();
+  const rows = (await db.execute({
+    sql: `SELECT event_id, raw_json FROM ticket_cache
+          WHERE id IN (SELECT MAX(id) FROM ticket_cache GROUP BY event_id)`,
+    args: [],
+  })).rows as unknown as { event_id: number; raw_json: string }[];
 
   const result = new Map<number, { price: number; platformCount: number }>();
   for (const row of rows) {
@@ -25,27 +25,27 @@ function getLowestPrices(): Map<number, { price: number; platformCount: number }
       if (listings.length === 0) continue;
       const price = Math.min(...listings.map((l) => l.all_in_price));
       const platformCount = new Set(listings.map((l) => l.platform)).size;
-      result.set(row.event_id, { price, platformCount });
+      result.set(Number(row.event_id), { price, platformCount });
     } catch {}
   }
   return result;
 }
 
-function getEvents(q?: string): CatalogEvent[] {
-  const db = getDb();
+async function getEvents(q?: string): Promise<CatalogEvent[]> {
+  const db = await getDb();
   if (q?.trim()) {
-    return db
-      .prepare(
-        `SELECT * FROM events
-         WHERE is_active = 1
-           AND (title LIKE ? OR artist LIKE ? OR venue LIKE ? OR city LIKE ?)
-         ORDER BY event_date ASC`
-      )
-      .all(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`) as CatalogEvent[];
+    return (await db.execute({
+      sql: `SELECT * FROM events
+            WHERE is_active = 1
+              AND (title LIKE ? OR artist LIKE ? OR venue LIKE ? OR city LIKE ?)
+            ORDER BY event_date ASC`,
+      args: [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`],
+    })).rows as unknown as CatalogEvent[];
   }
-  return db
-    .prepare(`SELECT * FROM events WHERE is_active = 1 ORDER BY event_date ASC`)
-    .all() as CatalogEvent[];
+  return (await db.execute({
+    sql: `SELECT * FROM events WHERE is_active = 1 ORDER BY event_date ASC`,
+    args: [],
+  })).rows as unknown as CatalogEvent[];
 }
 
 export default async function HomePage({
@@ -54,8 +54,8 @@ export default async function HomePage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const events = getEvents(q);
-  const lowestPrices = getLowestPrices();
+  const events = await getEvents(q);
+  const lowestPrices = await getLowestPrices();
 
   return (
     <>

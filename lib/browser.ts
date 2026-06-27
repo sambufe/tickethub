@@ -1,4 +1,4 @@
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -9,24 +9,28 @@ const BLOCKED_RESOURCE_TYPES = new Set(['image', 'font', 'stylesheet', 'media'])
 const BLOCKED_DOMAIN_PATTERNS = /google-analytics|googletagmanager|doubleclick|googlesyndication|facebook\.com\/tr|hotjar|segment\.io|amplitude\.com|newrelic|mixpanel/;
 
 async function getBrowser(): Promise<Browser> {
-  if (global.__pw_browser) {
-    if (global.__pw_browser.isConnected()) return global.__pw_browser;
-    // Previous instance crashed or was disconnected — close it before relaunching
-    await global.__pw_browser.close().catch(() => {});
-    global.__pw_browser = undefined;
+  if (process.env.VERCEL) {
+    const chromium = (await import('@sparticuz/chromium')).default;
+    const { chromium: pw } = await import('playwright-core');
+    const browser = await pw.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+    return browser as unknown as Browser;
   }
+
+  // Local dev — global singleton survives Next.js hot reloads
+  if (global.__pw_browser?.isConnected()) return global.__pw_browser;
+  await global.__pw_browser?.close().catch(() => {});
+  const { chromium } = await import('playwright');
   global.__pw_browser = await chromium.launch({
     headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled',
-    ],
+    args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
   });
   return global.__pw_browser;
 }
 
-/** Close the browser singleton cleanly (no-op if already closed). */
 export async function closeBrowser(): Promise<void> {
   if (global.__pw_browser) {
     await global.__pw_browser.close().catch(() => {});
@@ -34,24 +38,14 @@ export async function closeBrowser(): Promise<void> {
   }
 }
 
-/** Kill and relaunch the browser singleton — call this if scrapers start timing out. */
 export async function restartBrowser(): Promise<void> {
   await closeBrowser();
-  await getBrowser();
+  if (!process.env.VERCEL) await getBrowser();
 }
 
-// Close the browser on clean server shutdown so Chromium doesn't linger
-process.once('exit', () => {
-  global.__pw_browser?.close().catch(() => {});
-});
-process.once('SIGINT', () => {
-  global.__pw_browser?.close().catch(() => {});
-  process.exit(0);
-});
-process.once('SIGTERM', () => {
-  global.__pw_browser?.close().catch(() => {});
-  process.exit(0);
-});
+process.once('exit', () => { global.__pw_browser?.close().catch(() => {}); });
+process.once('SIGINT', () => { global.__pw_browser?.close().catch(() => {}); process.exit(0); });
+process.once('SIGTERM', () => { global.__pw_browser?.close().catch(() => {}); process.exit(0); });
 
 async function buildContext(): Promise<BrowserContext> {
   const browser = await getBrowser();
@@ -69,17 +63,12 @@ async function buildContext(): Promise<BrowserContext> {
   return context;
 }
 
-/** Standard page — no resource blocking (for URL-finding searches, etc.). */
 export async function newPage(): Promise<{ page: Page; context: BrowserContext }> {
   const context = await buildContext();
   const page = await context.newPage();
   return { page, context };
 }
 
-/**
- * Fast page — blocks images, fonts, stylesheets, media, and ad/tracking domains.
- * Use for ticket scrapers where only document + script + XHR responses matter.
- */
 export async function newFastPage(): Promise<{ page: Page; context: BrowserContext }> {
   const context = await buildContext();
   await context.route('**/*', (route) => {

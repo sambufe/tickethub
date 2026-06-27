@@ -23,7 +23,6 @@ export interface PlatformConnectionResult {
   url: string | null;
 }
 
-// Phrases in error text that mean "not configured" rather than a real failure
 const NO_URL_PHRASES = [
   'not configured',
   'access pending',
@@ -58,7 +57,6 @@ function interpretResult(result: SourceResult, url: string | null): Omit<Platfor
     };
   }
 
-  // TM connects via API but event is sold through venue directly — still a valid connection
   if (error?.includes('ticketed through the venue') || error?.includes('Buy at:')) {
     return { status: 'connected', summary: 'Connected (venue-ticketed event)', url };
   }
@@ -79,8 +77,8 @@ export async function GET(
   }
 
   const { id } = await params;
-  const db = getDb();
-  const event = db.prepare('SELECT * FROM events WHERE id = ?').get(id) as CatalogEvent | undefined;
+  const db = await getDb();
+  const event = ((await db.execute({ sql: 'SELECT * FROM events WHERE id = ?', args: [id] })).rows[0] ?? undefined) as unknown as CatalogEvent | undefined;
   if (!event) {
     return Response.json({ error: 'Event not found' }, { status: 404 });
   }
@@ -98,7 +96,6 @@ export async function GET(
   const defs: PlatformDef[] = [
     { key: 'ticketmaster', platform: 'Ticketmaster', hasData: !!event.ticketmaster_id, url: urls.ticketmaster ?? null, fetcher: fetchTM },
     { key: 'seatgeek', platform: 'SeatGeek', hasData: !!event.seatgeek_id, url: urls.seatgeek ?? null, fetcher: fetchSG },
-    // StubHub always runs — it self-reports if API key is unconfigured
     { key: 'stubhub', platform: 'StubHub', hasData: true, url: urls.stubhub ?? null, fetcher: fetchSH },
     { key: 'vividseats', platform: 'Vivid Seats', hasData: !!urls.vividseats, url: urls.vividseats ?? null, fetcher: fetchVS },
     { key: 'axs', platform: 'AXS', hasData: !!urls.axs, url: urls.axs ?? null, fetcher: fetchAXS },

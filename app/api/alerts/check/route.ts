@@ -40,16 +40,16 @@ interface CachedPayload {
 export async function POST(req: NextRequest) {
   if (!verifyAdmin(req)) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const db = getDb();
+  const db = await getDb();
 
-  const alerts = db
-    .prepare('SELECT id, event_id, event_ids, name, email, target_price, quantity FROM price_alerts WHERE is_active = 1')
-    .all() as PriceAlert[];
+  const alerts = (await db.execute({
+    sql: 'SELECT id, event_id, event_ids, name, email, target_price, quantity FROM price_alerts WHERE is_active = 1',
+    args: [],
+  })).rows as unknown as PriceAlert[];
 
   let notified = 0;
 
   for (const alert of alerts) {
-    // Resolve the list of event IDs this alert covers
     let eventIdList: number[] = [];
     if (alert.event_ids) {
       try { eventIdList = JSON.parse(alert.event_ids) as number[]; } catch {}
@@ -57,21 +57,21 @@ export async function POST(req: NextRequest) {
     if (eventIdList.length === 0 && alert.event_id != null) {
       eventIdList = [alert.event_id];
     }
-    if (eventIdList.length === 0) continue; // general alert with no events — skip
+    if (eventIdList.length === 0) continue;
 
     const allMatches: PriceMatch[] = [];
 
     for (const eid of eventIdList) {
-      const event = db
-        .prepare('SELECT id, title, event_date, venue FROM events WHERE id = ?')
-        .get(eid) as EventRow | null;
+      const event = ((await db.execute({
+        sql: 'SELECT id, title, event_date, venue FROM events WHERE id = ?',
+        args: [eid],
+      })).rows[0] ?? null) as unknown as EventRow | null;
       if (!event) continue;
 
-      const cacheRow = db
-        .prepare(
-          'SELECT raw_json FROM ticket_cache WHERE event_id = ? ORDER BY fetched_at DESC LIMIT 1'
-        )
-        .get(eid) as CacheRow | null;
+      const cacheRow = ((await db.execute({
+        sql: 'SELECT raw_json FROM ticket_cache WHERE event_id = ? ORDER BY fetched_at DESC LIMIT 1',
+        args: [eid],
+      })).rows[0] ?? null) as unknown as CacheRow | null;
       if (!cacheRow) continue;
 
       let payload: CachedPayload;
@@ -104,9 +104,10 @@ export async function POST(req: NextRequest) {
     try {
       await sendPriceAlert(alert.email, alert.target_price, allMatches);
 
-      db.prepare(
-        'UPDATE price_alerts SET is_active = 0, last_notified_at = CURRENT_TIMESTAMP, notified_price = ? WHERE id = ?'
-      ).run(Math.min(...allMatches.map((m) => m.price)), alert.id);
+      await db.execute({
+        sql: 'UPDATE price_alerts SET is_active = 0, last_notified_at = CURRENT_TIMESTAMP, notified_price = ? WHERE id = ?',
+        args: [Math.min(...allMatches.map((m) => m.price)), alert.id],
+      });
 
       notified++;
     } catch {

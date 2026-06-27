@@ -24,10 +24,8 @@ export async function GET(req: NextRequest) {
   const tmKey = process.env.TICKETMASTER_API_KEY;
   const sgClientId = process.env.SEATGEEK_CLIENT_ID;
 
-  const db = getDb();
-  const existing = db
-    .prepare('SELECT ticketmaster_id, seatgeek_id FROM events')
-    .all() as Array<{ ticketmaster_id: string | null; seatgeek_id: string | null }>;
+  const db = await getDb();
+  const existing = (await db.execute({ sql: 'SELECT ticketmaster_id, seatgeek_id FROM events', args: [] })).rows as unknown as Array<{ ticketmaster_id: string | null; seatgeek_id: string | null }>;
 
   const existingTMIds = new Set(existing.map((e) => e.ticketmaster_id).filter(Boolean));
   const existingSGIds = new Set(existing.map((e) => e.seatgeek_id).filter(Boolean));
@@ -41,8 +39,6 @@ export async function GET(req: NextRequest) {
   // --- Ticketmaster ---
   if (tmKey && tmKey !== 'your_key_here') {
     try {
-      // Geo-center: Thousand Oaks area (~midpoint of LA/Ventura/Santa Barbara counties)
-      // Radius of 85 miles covers all three counties
       const params = new URLSearchParams({
         apikey: tmKey,
         classificationName: 'music',
@@ -61,7 +57,6 @@ export async function GET(req: NextRequest) {
         params.delete('unit');
         params.set('stateCode', 'CA');
       }
-      // Convert local LA dates (PDT = UTC-7) to UTC for TM's API
       if (dateFrom) params.set('startDateTime', new Date(`${dateFrom}T00:00:00-07:00`).toISOString().slice(0, 19) + 'Z');
       if (dateTo) params.set('endDateTime', new Date(`${dateTo}T23:59:59-07:00`).toISOString().slice(0, 19) + 'Z');
 
@@ -110,12 +105,11 @@ export async function GET(req: NextRequest) {
   // --- SeatGeek ---
   if (sgClientId && sgClientId !== 'your_client_id_here') {
     try {
-      // Same geo-center as Ticketmaster (LA/Ventura/Santa Barbara counties)
       const params = new URLSearchParams({
         client_id: sgClientId,
         type: 'concert',
         per_page: String(PAGE_SIZE),
-        page: String(page + 1), // SeatGeek pages are 1-indexed
+        page: String(page + 1),
         sort: 'datetime_local.asc',
         lat: '34.17',
         lon: '-118.84',
@@ -128,7 +122,6 @@ export async function GET(req: NextRequest) {
         params.delete('lon');
         params.delete('range');
       }
-      // SeatGeek uses local datetime strings — no timezone conversion needed
       if (dateFrom) params.set('datetime_local.gte', `${dateFrom}T00:00:00`);
       if (dateTo) params.set('datetime_local.lte', `${dateTo}T23:59:59`);
 

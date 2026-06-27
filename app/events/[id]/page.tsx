@@ -8,10 +8,10 @@ import NYPPanel from './NYPPanel';
 import ChicketsNav from '@/app/components/ChicketsNav';
 import ChicketsFooter from '@/app/components/ChicketsFooter';
 
-function getEvent(id: string): CatalogEvent | null {
-  const db = getDb();
+async function getEvent(id: string): Promise<CatalogEvent | null> {
+  const db = await getDb();
   return (
-    (db.prepare('SELECT * FROM events WHERE id = ?').get(id) as CatalogEvent | null) ?? null
+    ((await db.execute({ sql: 'SELECT * FROM events WHERE id = ?', args: [id] })).rows[0] ?? null) as unknown as CatalogEvent | null
   );
 }
 
@@ -34,7 +34,7 @@ export default async function EventPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const event = getEvent(id);
+  const event = await getEvent(id);
 
   if (!event) notFound();
 
