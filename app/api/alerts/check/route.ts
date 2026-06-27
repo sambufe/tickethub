@@ -69,9 +69,9 @@ export async function POST(req: NextRequest) {
 
       const cacheRow = db
         .prepare(
-          'SELECT raw_json FROM ticket_cache WHERE event_id = ? AND qty = ? ORDER BY fetched_at DESC LIMIT 1'
+          'SELECT raw_json FROM ticket_cache WHERE event_id = ? ORDER BY fetched_at DESC LIMIT 1'
         )
-        .get(eid, alert.quantity) as CacheRow | null;
+        .get(eid) as CacheRow | null;
       if (!cacheRow) continue;
 
       let payload: CachedPayload;
