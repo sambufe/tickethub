@@ -9,6 +9,28 @@ import ChicketsNav from '@/app/components/ChicketsNav';
 import ChicketsFooter from '@/app/components/ChicketsFooter';
 import ChicketsMascot from '@/app/components/ChicketsMascot';
 
+function getLowestPrices(): Map<number, { price: number; platformCount: number }> {
+  const db = getDb();
+  // Most recent cache entry per event (MAX id = latest insert)
+  const rows = db.prepare(`
+    SELECT event_id, raw_json FROM ticket_cache
+    WHERE id IN (SELECT MAX(id) FROM ticket_cache GROUP BY event_id)
+  `).all() as { event_id: number; raw_json: string }[];
+
+  const result = new Map<number, { price: number; platformCount: number }>();
+  for (const row of rows) {
+    try {
+      const parsed = JSON.parse(row.raw_json) as { listings?: { all_in_price: number; platform: string }[] };
+      const listings = parsed.listings ?? [];
+      if (listings.length === 0) continue;
+      const price = Math.min(...listings.map((l) => l.all_in_price));
+      const platformCount = new Set(listings.map((l) => l.platform)).size;
+      result.set(row.event_id, { price, platformCount });
+    } catch {}
+  }
+  return result;
+}
+
 function getEvents(q?: string): CatalogEvent[] {
   const db = getDb();
   if (q?.trim()) {
@@ -33,6 +55,7 @@ export default async function HomePage({
 }) {
   const { q } = await searchParams;
   const events = getEvents(q);
+  const lowestPrices = getLowestPrices();
 
   return (
     <>
@@ -136,7 +159,7 @@ export default async function HomePage({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {events.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event.id} event={event} lowestPrice={lowestPrices.get(event.id)?.price} platformCount={lowestPrices.get(event.id)?.platformCount} />
             ))}
           </div>
         )}

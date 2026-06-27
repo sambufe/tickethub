@@ -17,7 +17,7 @@ function formatDate(dateStr: string | null): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-export default function EventCard({ event }: { event: CatalogEvent }) {
+export default function EventCard({ event, lowestPrice, platformCount }: { event: CatalogEvent; lowestPrice?: number | null; platformCount?: number }) {
   const band = BAND_COLORS[event.id % 4];
   const genreLabel = (event.artist && event.artist !== event.title ? event.artist : 'LIVE CONCERT').toUpperCase();
   const location = [event.venue, [event.city, event.state].filter(Boolean).join(', ')]
@@ -78,16 +78,31 @@ export default function EventCard({ event }: { event: CatalogEvent }) {
             </div>
           )}
           <div className="mt-auto">
-            <div className="h-px my-3" style={{ background: '#EFE6C8' }} />
-            <div className="flex items-end justify-between">
+            <div style={{ height: 1, background: '#EFE6C8', margin: '13px 0 11px' }} />
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#9A8F66' }}>From</div>
-                <div className="font-baloo font-extrabold text-2xl leading-none text-chk-orange">Compare →</div>
-                <div className="text-[11px] font-semibold mt-1" style={{ color: '#9A8F66' }}>tap to compare all sites</div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: '#9A8F66' }}>From</div>
+                {lowestPrice ? (
+                  <>
+                    <div className="font-baloo" style={{ fontWeight: 800, fontSize: 26, lineHeight: 1, color: '#FF6B35' }}>
+                      ${Math.ceil(lowestPrice)}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#9A8F66', marginTop: 3 }}>
+                      {platformCount ?? 1} price{platformCount !== 1 ? 's' : ''} compared
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-baloo" style={{ fontWeight: 800, fontSize: 20, lineHeight: 1, color: '#1A1A2E', opacity: 0.4 }}>
+                      —
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#9A8F66', marginTop: 3 }}>
+                      tap to compare
+                    </div>
+                  </>
+                )}
               </div>
-              <span
-                className="w-9 h-9 rounded-full bg-chk-yellow border-[2.5px] border-chk-navy flex items-center justify-center font-extrabold text-lg text-chk-navy"
-              >
+              <span style={{ width: 38, height: 38, borderRadius: '50%', background: '#FFD93D', border: '2.5px solid #1A1A2E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18, color: '#1A1A2E', flexShrink: 0 }}>
                 →
               </span>
             </div>
