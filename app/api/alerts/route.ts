@@ -9,10 +9,13 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); }
   catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-  const { event_id, name, email, target_price, quantity } = body;
+  const { event_id, name, email, target_price, quantity, date_window } = body;
 
-  if (!event_id || !name || !email || target_price == null || !quantity) {
-    return Response.json({ error: 'All fields are required' }, { status: 400 });
+  // event_id is optional (null = general/any-event alert)
+  const hasEventId = event_id != null;
+
+  if (!name || !email || target_price == null || !quantity) {
+    return Response.json({ error: 'Name, email, price, and quantity are required.' }, { status: 400 });
   }
   if (typeof email !== 'string' || !EMAIL_RE.test(email)) {
     return Response.json({ error: 'Invalid email address' }, { status: 400 });
@@ -27,22 +30,31 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
-  const event = db.prepare('SELECT id, title FROM events WHERE id = ?').get(event_id) as { id: number; title: string } | null;
-  if (!event) return Response.json({ error: 'Event not found' }, { status: 404 });
+
+  let eventTitle = 'any upcoming event';
+  if (hasEventId) {
+    const event = db.prepare('SELECT id, title FROM events WHERE id = ?').get(event_id) as { id: number; title: string } | null;
+    if (!event) return Response.json({ error: 'Event not found' }, { status: 404 });
+    eventTitle = event.title;
+  }
+
+  const nameStr = String(name).trim();
+  const emailStr = String(email).trim().toLowerCase();
+  const dateWindowStr = typeof date_window === 'string' ? date_window : null;
 
   db.prepare(
-    'INSERT INTO price_alerts (event_id, name, email, target_price, quantity) VALUES (?, ?, ?, ?, ?)'
-  ).run(Number(event_id), String(name).trim(), String(email).trim().toLowerCase(), price, qty);
+    'INSERT INTO price_alerts (event_id, name, email, target_price, quantity, date_window) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(hasEventId ? Number(event_id) : null, nameStr, emailStr, price, qty, dateWindowStr);
 
   sendAlertConfirmation({
-    to: String(email).trim().toLowerCase(),
-    name: String(name).trim(),
-    eventTitle: event.title,
+    to: emailStr,
+    name: nameStr,
+    eventTitle,
     targetPrice: price,
     quantity: qty,
   }).catch(() => {});
 
-  // Fire PostHog server-side via capture API (no email in properties)
+  // PostHog server-side capture
   const phKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   if (phKey && phKey !== 'your_key_here') {
     fetch('https://us.i.posthog.com/capture/', {
@@ -52,7 +64,12 @@ export async function POST(req: NextRequest) {
         api_key: phKey,
         event: 'price_alert_created',
         distinct_id: 'server',
-        properties: { event_id: Number(event_id), quantity: qty, target_price: price },
+        properties: {
+          event_id: hasEventId ? Number(event_id) : null,
+          quantity: qty,
+          target_price: price,
+          date_window: dateWindowStr,
+        },
       }),
     }).catch(() => {});
   }

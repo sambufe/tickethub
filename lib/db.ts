@@ -64,6 +64,7 @@ export function getDb(): Database.Database {
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_events_canonical_id ON events(canonical_id) WHERE canonical_id IS NOT NULL'
       );
     } catch {}
+    try { db.exec('ALTER TABLE price_alerts ADD COLUMN date_window TEXT'); } catch {}
   }
   return db;
 }
