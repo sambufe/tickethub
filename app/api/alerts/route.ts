@@ -49,9 +49,37 @@ export async function POST(req: NextRequest) {
   const singleEventId = eventIdList.length > 0 ? eventIdList[0] : null;
   const eventIdsJson = eventIdList.length > 0 ? JSON.stringify(eventIdList) : null;
 
+  // Snapshot lowest market price at time of signup
+  let marketPrice: number | null = null;
+  let platformsChecked = 0;
+
+  if (singleEventId) {
+    const cacheRows = db.prepare(
+      'SELECT raw_json FROM ticket_cache WHERE event_id = ? ORDER BY fetched_at DESC LIMIT 10'
+    ).all(singleEventId) as { raw_json: string }[];
+
+    const seenPlatforms = new Set<string>();
+    let lowestSeen = Infinity;
+
+    for (const row of cacheRows) {
+      try {
+        const parsed = JSON.parse(row.raw_json) as { listings?: { all_in_price: number; platform: string; quantity: number }[] };
+        for (const l of parsed.listings ?? []) {
+          if (l.quantity === 0 || l.quantity >= qty) {
+            seenPlatforms.add(l.platform);
+            if (l.all_in_price < lowestSeen) lowestSeen = l.all_in_price;
+          }
+        }
+      } catch {}
+    }
+
+    if (lowestSeen < Infinity) marketPrice = lowestSeen;
+    platformsChecked = seenPlatforms.size;
+  }
+
   db.prepare(
-    'INSERT INTO price_alerts (event_id, event_ids, name, email, target_price, quantity, date_window) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(singleEventId, eventIdsJson, nameStr, emailStr, price, qty, dateWindowStr);
+    'INSERT INTO price_alerts (event_id, event_ids, name, email, target_price, quantity, date_window, market_price_at_signup, platforms_checked_at_signup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(singleEventId, eventIdsJson, nameStr, emailStr, price, qty, dateWindowStr, marketPrice, platformsChecked);
 
   // Confirmation email — use first event title or generic
   let eventTitle = 'any upcoming event';
@@ -71,7 +99,16 @@ export async function POST(req: NextRequest) {
         api_key: phKey,
         event: 'price_alert_created',
         distinct_id: 'server',
-        properties: { event_id: singleEventId, event_ids: eventIdList, quantity: qty, target_price: price, date_window: dateWindowStr },
+        properties: {
+          event_id: singleEventId,
+          event_ids: eventIdList,
+          quantity: qty,
+          target_price: price,
+          date_window: dateWindowStr,
+          market_price_at_signup: marketPrice,
+          platforms_checked_at_signup: platformsChecked,
+          discount_sought: marketPrice ? Math.round((1 - price / marketPrice) * 100) : null,
+        },
       }),
     }).catch(() => {});
   }

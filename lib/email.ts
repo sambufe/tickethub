@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 
+// TODO pre-launch: verify chickets.com in Resend dashboard, then change to hello@chickets.com
 const FROM_ADDRESS = 'onboarding@resend.dev';
 
 export async function sendAlertConfirmation({
@@ -22,7 +23,7 @@ export async function sendAlertConfirmation({
   await resend.emails.send({
     from: FROM_ADDRESS,
     to,
-    subject: `You're on the list — ${eventTitle}`,
+    subject: `🐣 We're watching the nest — ${eventTitle}`,
     html: `<p>Hi ${name},</p>
 <p>We'll email you as soon as we find tickets to <strong>${eventTitle}</strong> at <strong>$${Math.ceil(targetPrice)}</strong> or below for <strong>${quantity} ticket${quantity !== 1 ? 's' : ''}</strong>.</p>
 <p>We check prices regularly and will notify you the moment a deal appears.</p>
@@ -61,7 +62,7 @@ export async function sendPriceAlert(
 
   const resend = new Resend(apiKey);
   const n = matches.length;
-  const subject = `🐣 Chickets: ${n} show${n !== 1 ? 's' : ''} hit your price target`;
+  const subject = `🐣 We found a seat in your price range!`;
 
   const rows = matches
     .sort((a, b) => a.price - b.price)

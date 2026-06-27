@@ -67,6 +67,8 @@ export function getDb(): Database.Database {
     try { db.exec('ALTER TABLE price_alerts ADD COLUMN date_window TEXT'); } catch {}
     try { db.exec('ALTER TABLE price_alerts ADD COLUMN event_ids TEXT'); } catch {}
     try { db.exec('ALTER TABLE price_alerts ADD COLUMN label TEXT'); } catch {}
+    try { db.exec('ALTER TABLE price_alerts ADD COLUMN market_price_at_signup NUMERIC'); } catch {}
+    try { db.exec('ALTER TABLE price_alerts ADD COLUMN platforms_checked_at_signup INTEGER'); } catch {}
   }
   return db;
 }
