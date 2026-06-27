@@ -220,7 +220,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
         {displayed.length > 0 && (
           <div
             className="hidden md:grid px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-chk-muted border-b-[2px]"
-            style={{ gridTemplateColumns: '1.8fr 1fr 0.5fr 1fr auto', gap: '10px', borderColor: '#EFE6C8' }}
+            style={{ gridTemplateColumns: '1.8fr 1fr 0.5fr 1fr 80px', gap: '10px', borderColor: '#EFE6C8' }}
           >
             <span>Marketplace</span>
             <span>Section</span>
@@ -261,7 +261,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                   key={i}
                   className="grid px-5 py-4 items-center border-b-[1.5px]"
                   style={{
-                    gridTemplateColumns: '1.8fr 1fr 0.5fr 1fr auto',
+                    gridTemplateColumns: '1.8fr 1fr 0.5fr 1fr 80px',
                     gap: '10px',
                     background: i === 0 ? '#FFFBEC' : '#fff',
                     borderColor: '#F2ECD6',
@@ -313,7 +313,7 @@ export default function TicketListings({ eventId }: { eventId: string }) {
                         all_in_price: t.all_in_price,
                         is_best_price: i === 0,
                       })}
-                      className={`border-[2.5px] border-chk-navy rounded-[10px] font-baloo font-bold text-[13.5px] px-4 py-2 whitespace-nowrap no-underline hover:opacity-90 transition-opacity ${
+                      className={`block text-center border-[2.5px] border-chk-navy rounded-[10px] font-baloo font-bold text-[13.5px] px-2 py-2 whitespace-nowrap no-underline hover:opacity-90 transition-opacity ${
                         i === 0 ? 'bg-chk-orange text-white' : 'bg-chk-yellow text-chk-navy'
                       }`}
                     >
