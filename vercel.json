@@ -1,7 +1,8 @@
 {
   "functions": {
     "app/api/tickets/[id]/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "memory": 3008
     }
   }
 }

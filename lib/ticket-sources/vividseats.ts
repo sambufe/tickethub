@@ -1,4 +1,4 @@
-import type { Response as PlaywrightResponse } from 'playwright';
+import type { Response as PlaywrightResponse } from 'playwright-core';
 import { CatalogEvent, parsePlatformUrls } from '@/lib/types';
 import { TicketListing, SourceResult } from './types';
 import { newFastPage } from '@/lib/browser';

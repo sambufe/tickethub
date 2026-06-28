@@ -1,4 +1,4 @@
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright-core';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -12,22 +12,22 @@ async function getBrowser(): Promise<Browser> {
   if (process.env.VERCEL) {
     const chromium = (await import('@sparticuz/chromium')).default;
     const { chromium: pw } = await import('playwright-core');
-    const browser = await pw.launch({
+    return pw.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
       headless: true,
     });
-    return browser as unknown as Browser;
   }
 
   // Local dev — global singleton survives Next.js hot reloads
   if (global.__pw_browser?.isConnected()) return global.__pw_browser;
   await global.__pw_browser?.close().catch(() => {});
   const { chromium } = await import('playwright');
-  global.__pw_browser = await chromium.launch({
+  const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
   });
+  global.__pw_browser = browser as unknown as Browser;
   return global.__pw_browser;
 }
 
