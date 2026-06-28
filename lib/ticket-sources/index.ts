@@ -12,27 +12,29 @@ export interface AggregatedResult {
   sources: SourceResult[];
 }
 
+function wrap(platform: string, fn: () => Promise<SourceResult>): Promise<SourceResult> {
+  return fn().catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[tickets] ${platform} error:`, msg);
+    return { platform, listings: [], error: msg };
+  });
+}
+
 export async function fetchAllListings(event: CatalogEvent, qty = 2): Promise<AggregatedResult> {
-  const settled = await Promise.allSettled([
-    fromTicketmaster(event, qty),
-    fromVividSeats(event, qty),
-    fromTickPick(event, qty),
-    fromGametime(event, qty),
-    fromStubHub(event, qty),
-    fromSeatGeek(event, qty),
+  const results = await Promise.all([
+    wrap('Ticketmaster', () => fromTicketmaster(event, qty)),
+    wrap('VividSeats',  () => fromVividSeats(event, qty)),
+    wrap('TickPick',    () => fromTickPick(event, qty)),
+    wrap('Gametime',    () => fromGametime(event, qty)),
+    wrap('StubHub',     () => fromStubHub(event, qty)),
+    wrap('SeatGeek',    () => fromSeatGeek(event, qty)),
   ]);
 
-  const sources: SourceResult[] = settled.map((r) =>
-    r.status === 'fulfilled'
-      ? r.value
-      : { platform: 'Unknown', listings: [], error: String((r as PromiseRejectedResult).reason) }
-  );
-
-  const listings: TicketListing[] = sources
+  const listings: TicketListing[] = results
     .flatMap((s) => s.listings)
     .sort((a, b) => a.all_in_price - b.all_in_price);
 
-  return { listings, sources };
+  return { listings, sources: results };
 }
 
 export type { TicketListing, SourceResult };
