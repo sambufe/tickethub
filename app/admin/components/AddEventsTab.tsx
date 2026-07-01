@@ -33,6 +33,11 @@ function formatDate(dateStr: string): string {
   });
 }
 
+type ConfirmingState = {
+  event: EventResult;
+  prefillUrls: Record<string, string | null>;
+} | null;
+
 export default function AddEventsTab({ password }: Props) {
   const [keyword, setKeyword] = useState('');
   const [city, setCity] = useState('');
@@ -47,7 +52,8 @@ export default function AddEventsTab({ password }: Props) {
   const [hasMore, setHasMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
 
-  const [confirming, setConfirming] = useState<EventResult | null>(null);
+  const [searchingId, setSearchingId] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<ConfirmingState>(null);
 
   const doSearch = useCallback(async (page: number, append: boolean) => {
     if (append) setLoadingMore(true);
@@ -82,6 +88,29 @@ export default function AddEventsTab({ password }: Props) {
 
   const handleSearch = useCallback(() => doSearch(0, false), [doSearch]);
   const handleLoadMore = useCallback(() => doSearch(currentPage + 1, true), [doSearch, currentPage]);
+
+  const handleCardClick = useCallback(async (event: EventResult) => {
+    if (event.alreadyAdded || searchingId) return;
+    setSearchingId(event.id);
+    try {
+      const params = new URLSearchParams();
+      if (event.title) params.set('title', event.title);
+      if (event.artist) params.set('artist', event.artist);
+      if (event.venue) params.set('venue', event.venue);
+      if (event.city) params.set('city', event.city);
+      if (event.state) params.set('state', event.state);
+      if (event.event_date) params.set('event_date', event.event_date);
+      const res = await fetch(`/api/admin/search-urls?${params}`, {
+        headers: { 'x-admin-password': password },
+      });
+      const data = await res.json();
+      setConfirming({ event, prefillUrls: data.urls ?? {} });
+    } catch {
+      setConfirming({ event, prefillUrls: {} });
+    } finally {
+      setSearchingId(null);
+    }
+  }, [password, searchingId]);
 
   const handleAdded = (eventResultId: string) => {
     setResults((prev) =>
@@ -177,7 +206,9 @@ export default function AddEventsTab({ password }: Props) {
               <EventCard
                 key={event.id}
                 event={event}
-                onClick={() => !event.alreadyAdded && setConfirming(event)}
+                searching={searchingId === event.id}
+                disabled={!!searchingId && searchingId !== event.id}
+                onClick={() => handleCardClick(event)}
               />
             ))}
           </div>
@@ -218,7 +249,8 @@ export default function AddEventsTab({ password }: Props) {
 
       {/* Confirmation modal */}
       <EventConfirmModal
-        event={confirming}
+        event={confirming?.event ?? null}
+        prefillUrls={confirming?.prefillUrls ?? {}}
         password={password}
         onClose={() => setConfirming(null)}
         onAdded={handleAdded}
@@ -227,13 +259,25 @@ export default function AddEventsTab({ password }: Props) {
   );
 }
 
-function EventCard({ event, onClick }: { event: EventResult; onClick: () => void }) {
+function EventCard({
+  event,
+  searching,
+  disabled,
+  onClick,
+}: {
+  event: EventResult;
+  searching: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
   return (
     <div
-      onClick={onClick}
+      onClick={!disabled && !searching && !event.alreadyAdded ? onClick : undefined}
       className={`flex items-start gap-4 rounded-xl border p-4 transition-all ${
-        event.alreadyAdded
+        event.alreadyAdded || disabled
           ? 'border-slate-200 bg-slate-50 opacity-60 cursor-default'
+          : searching
+          ? 'border-indigo-200 bg-indigo-50/40 cursor-wait'
           : 'border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm cursor-pointer'
       }`}
     >
@@ -266,6 +310,14 @@ function EventCard({ event, onClick }: { event: EventResult; onClick: () => void
             {event.alreadyAdded ? (
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
                 Added
+              </span>
+            ) : searching ? (
+              <span className="text-xs text-indigo-500 font-medium flex items-center gap-1">
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Finding listings…
               </span>
             ) : (
               <span className="text-xs text-slate-400 font-medium">Click to add →</span>
