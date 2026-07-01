@@ -5,7 +5,7 @@ import { newFastPage } from '@/lib/browser';
 import { googleSearchFirstUrl } from '@/lib/google-search';
 import { normalizeSection } from '@/lib/utils/normalize-section';
 
-const API_TIMEOUT_MS = 10_000;
+const API_TIMEOUT_MS = 15_000;
 
 interface VSTicket {
   s?: string;
@@ -102,6 +102,6 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
     const msg = err instanceof Error ? err.message : String(err);
     return { platform: 'Vivid Seats', listings: [], error: `Scraper error: ${msg}` };
   } finally {
-    await context.close();
+    await context.close().catch(() => {});
   }
 }

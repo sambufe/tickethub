@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "scrape:tm": "npx tsx scripts/scrape-ticketmaster-local.ts",
+    "backfill:urls": "npx tsx scripts/backfill-platform-urls.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

@@ -131,6 +131,6 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
     const msg = err instanceof Error ? err.message : String(err);
     return { platform: 'StubHub', listings: [], error: `Scraper error: ${msg}` };
   } finally {
-    await context.close();
+    await context.close().catch(() => {});
   }
 }

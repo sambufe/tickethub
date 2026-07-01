@@ -33,19 +33,19 @@ async function getLowestPrices(): Promise<Map<number, { price: number; platformC
 
 async function getEvents(q?: string): Promise<CatalogEvent[]> {
   const db = await getDb();
-  if (q?.trim()) {
-    return (await db.execute({
-      sql: `SELECT * FROM events
-            WHERE is_active = 1
-              AND (title LIKE ? OR artist LIKE ? OR venue LIKE ? OR city LIKE ?)
-            ORDER BY event_date ASC`,
-      args: [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`],
-    })).rows as unknown as CatalogEvent[];
-  }
-  return (await db.execute({
-    sql: `SELECT * FROM events WHERE is_active = 1 ORDER BY event_date ASC`,
-    args: [],
-  })).rows as unknown as CatalogEvent[];
+  const rows = q?.trim()
+    ? (await db.execute({
+        sql: `SELECT * FROM events
+              WHERE is_active = 1
+                AND (title LIKE ? OR artist LIKE ? OR venue LIKE ? OR city LIKE ?)
+              ORDER BY event_date ASC`,
+        args: [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`],
+      })).rows
+    : (await db.execute({
+        sql: `SELECT * FROM events WHERE is_active = 1 ORDER BY event_date ASC`,
+        args: [],
+      })).rows;
+  return rows.map((r) => ({ ...r })) as unknown as CatalogEvent[];
 }
 
 export default async function HomePage({

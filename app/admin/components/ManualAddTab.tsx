@@ -44,16 +44,7 @@ export default function ManualAddTab({ password }: Props) {
           'Content-Type': 'application/json',
           'x-admin-password': password,
         },
-        body: JSON.stringify({
-          events: [
-            {
-              id: `manual_${Date.now()}`,
-              source: 'ticketmaster',
-              ...form,
-              alreadyAdded: false,
-            },
-          ],
-        }),
+        body: JSON.stringify(form),
       });
       const data = await res.json();
       if (data.ok) {

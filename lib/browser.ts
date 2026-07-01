@@ -1,34 +1,63 @@
+// playwright-core: static import (not dynamic) so webpack doesn't create
+// a hashed async split-chunk that Vercel's runtime can't resolve by name.
+import { chromium as pwChromium } from 'playwright-core';
 import type { Browser, BrowserContext, Page } from 'playwright-core';
 
 declare global {
   // eslint-disable-next-line no-var
   var __pw_browser: Browser | undefined;
+  // eslint-disable-next-line no-var
+  var __pw_vercel_browser: Promise<Browser> | undefined;
+  // eslint-disable-next-line no-var
+  var __pw_exec_promise: Promise<{ executablePath: string; args: string[] }> | undefined;
 }
 
 const BLOCKED_RESOURCE_TYPES = new Set(['image', 'font', 'stylesheet', 'media']);
 const BLOCKED_DOMAIN_PATTERNS = /google-analytics|googletagmanager|doubleclick|googlesyndication|facebook\.com\/tr|hotjar|segment\.io|amplitude\.com|newrelic|mixpanel/;
 
+async function getLaunchConfig(): Promise<{ executablePath: string; args: string[] }> {
+  if (!global.__pw_exec_promise) {
+    global.__pw_exec_promise = (async () => {
+      const chromium = (await import('@sparticuz/chromium')).default;
+      return { executablePath: await chromium.executablePath(), args: chromium.args };
+    })();
+  }
+  return global.__pw_exec_promise;
+}
+
 async function getBrowser(): Promise<Browser> {
   if (process.env.VERCEL) {
-    const chromium = (await import('@sparticuz/chromium')).default;
-    const { chromium: pw } = await import('playwright-core');
-    return pw.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
+    // Reuse the browser across requests (one Chrome per Lambda instance).
+    // Scrapers get independent contexts; only the Lambda eviction cleans up Chrome.
+    // On crash: 'disconnected' event clears the singleton and the next request relaunches.
+    if (global.__pw_vercel_browser) {
+      try {
+        const b = await global.__pw_vercel_browser;
+        if (b.isConnected()) return b;
+      } catch { /* browser failed to launch previously */ }
+      global.__pw_vercel_browser = undefined;
+    }
+    global.__pw_vercel_browser = (async () => {
+      const { executablePath, args } = await getLaunchConfig();
+      const browser = await pwChromium.launch({ args, executablePath, headless: true });
+      browser.on('disconnected', () => { global.__pw_vercel_browser = undefined; });
+      return browser;
+    })();
+    return global.__pw_vercel_browser;
   }
 
-  // Local dev — global singleton survives Next.js hot reloads
+  // Local dev — global singleton survives Next.js hot reloads.
+  // turbopackIgnore + webpackIgnore prevent either bundler from processing 'playwright'
+  // (it's a devDependency, not available on Vercel).
   if (global.__pw_browser?.isConnected()) return global.__pw_browser;
   await global.__pw_browser?.close().catch(() => {});
-  const { chromium } = await import('playwright');
-  const browser = await chromium.launch({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { chromium } = await (import(/* webpackIgnore: true */ /* turbopackIgnore: true */ 'playwright') as Promise<any>);
+  global.__pw_browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
-  });
-  global.__pw_browser = browser as unknown as Browser;
-  return global.__pw_browser;
+  }) as unknown as Browser;
+  return global.__pw_browser!;
 }
 
 export async function closeBrowser(): Promise<void> {

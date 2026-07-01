@@ -10,9 +10,8 @@ import ChicketsFooter from '@/app/components/ChicketsFooter';
 
 async function getEvent(id: string): Promise<CatalogEvent | null> {
   const db = await getDb();
-  return (
-    ((await db.execute({ sql: 'SELECT * FROM events WHERE id = ?', args: [id] })).rows[0] ?? null) as unknown as CatalogEvent | null
-  );
+  const row = (await db.execute({ sql: 'SELECT * FROM events WHERE id = ?', args: [id] })).rows[0] ?? null;
+  return row ? ({ ...row } as unknown as CatalogEvent) : null;
 }
 
 function formatDateTime(dateStr: string | null): string {

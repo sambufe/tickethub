@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getDb } from '@/lib/db';
-import { CatalogEvent } from '@/lib/types';
+import { CatalogEvent, parsePlatformUrls } from '@/lib/types';
+import { searchPlatformUrls } from '@/lib/search-platform-urls';
 
 function verifyAdmin(req: NextRequest): boolean {
   return req.headers.get('x-admin-password') === process.env.ADMIN_PASSWORD;
@@ -69,5 +70,38 @@ export async function POST(req: NextRequest) {
     ],
   });
 
-  return Response.json({ ok: true, id: Number(result.lastInsertRowid) });
+  const newId = Number(result.lastInsertRowid);
+
+  // Auto-populate platform URLs via SerpAPI in the background
+  // Build a minimal CatalogEvent so searchPlatformUrls has what it needs
+  const stub = {
+    id: newId,
+    title: body.title,
+    artist: body.artist ?? null,
+    venue: body.venue ?? null,
+    city: body.city ?? null,
+    state: body.state ?? null,
+    event_date: body.event_date ?? null,
+    platform_urls: body.platform_urls ? JSON.stringify(body.platform_urls) : null,
+  } as unknown as CatalogEvent;
+
+  console.log(`[admin] searching platform URLs for event ${newId}: "${body.title}"`);
+  try {
+    const found = await searchPlatformUrls(stub);
+    console.log(`[admin] searchPlatformUrls result:`, JSON.stringify(found));
+    const existing = parsePlatformUrls(stub);
+    const merged = {
+      ...existing,
+      ...Object.fromEntries(Object.entries(found).filter(([, v]) => v != null)),
+    };
+    await db.execute({
+      sql: 'UPDATE events SET platform_urls = ? WHERE id = ?',
+      args: [JSON.stringify(merged), newId],
+    });
+    console.log(`[admin] platform_urls saved for event ${newId}`);
+  } catch (err) {
+    console.error('[admin] searchPlatformUrls failed:', err);
+  }
+
+  return Response.json({ ok: true, id: newId });
 }

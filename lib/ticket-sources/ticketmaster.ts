@@ -1,5 +1,5 @@
 import type { Response as PlaywrightResponse } from 'playwright-core';
-import { CatalogEvent, parsePlatformUrls } from '@/lib/types';
+import { CatalogEvent } from '@/lib/types';
 import { SourceResult, TicketListing } from './types';
 import { newFastPage } from '@/lib/browser';
 import { normalizeSection } from '@/lib/utils/normalize-section';
@@ -51,17 +51,17 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
     return { platform: 'Ticketmaster', listings: [], error: 'No Ticketmaster event ID stored' };
   }
 
-  const platformUrls = parsePlatformUrls(event);
-  const storedUrl = platformUrls.ticketmaster;
-  const eventUrl = storedUrl?.includes('ticketmaster.com/event/')
-    ? storedUrl
-    : `https://www.ticketmaster.com/event/${event.ticketmaster_id}`;
+  const eventUrl = `https://www.ticketmaster.com/event/${event.ticketmaster_id}`;
 
   const { page, context } = await newFastPage();
   try {
     const capturedFacets: PlaywrightResponse[] = [];
+    const allResponseUrls: string[] = [];
+
     page.on('response', (r: PlaywrightResponse) => {
-      if (isFacetsUrl(r.url())) capturedFacets.push(r);
+      const url = r.url();
+      allResponseUrls.push(`${r.status()} ${url.substring(0, 120)}`);
+      if (isFacetsUrl(url)) capturedFacets.push(r);
     });
 
     // Set up trigger BEFORE goto so we don't race the first facets response
@@ -70,7 +70,9 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       { timeout: API_TIMEOUT_MS }
     );
 
+    console.log('[TM] navigating to', eventUrl);
     await page.goto(eventUrl, { waitUntil: 'domcontentloaded', timeout: API_TIMEOUT_MS }).catch(() => {});
+    console.log('[TM] page loaded, waiting for facets...');
 
     try {
       await firstFacetPromise;
@@ -85,9 +87,12 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
         reset(); // start the timer immediately after first facet
       });
     } catch {
+      console.log('[TM] timed out. All response URLs seen:');
+      allResponseUrls.forEach((u) => console.log('  ', u));
       return { platform: 'Ticketmaster', listings: [], error: 'Listings API timed out (10s)' };
     }
 
+    console.log('[TM] captured', capturedFacets.length, 'facets responses');
     const allSectionFacets: SectionFacet[] = [];
     const listPriceMap = new Map<string, number>();
     const totalPriceMap = new Map<string, number>();
@@ -132,6 +137,8 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       });
     }
 
+    console.log('[TM] sectionFacets:', allSectionFacets.length, 'listPrices:', listPriceMap.size, 'totalPrices:', totalPriceMap.size, 'listings built:', listings.length);
+
     if (listings.length === 0) {
       return { platform: 'Ticketmaster', listings: [], error: 'No listings found (10s window)' };
     }
@@ -142,6 +149,6 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
     const msg = err instanceof Error ? err.message : String(err);
     return { platform: 'Ticketmaster', listings: [], error: `Scraper error: ${msg}` };
   } finally {
-    await context.close();
+    await context.close().catch(() => {});
   }
 }
