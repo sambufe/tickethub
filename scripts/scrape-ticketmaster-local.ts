@@ -1,3 +1,5 @@
+// NOTE: TM's EPS blocks this even from residential IPs. Kept for future use.
+
 /**
  * Local Ticketmaster scraper — runs on Mac with residential IP, writes merged
  * results into Turso ticket_cache without overwriting other platforms.

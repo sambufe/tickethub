@@ -1,6 +1,6 @@
 import { CatalogEvent } from '@/lib/types';
 import { TicketListing, SourceResult } from './types';
-import { fetchListings as fromTicketmaster } from './ticketmaster';
+// import { fetchListings as fromTicketmaster } from './ticketmaster'; // disabled: blocked by TM EPS
 import { fetchListings as fromVividSeats } from './vividseats';
 import { fetchListings as fromTickPick } from './tickpick';
 import { fetchListings as fromGametime } from './gametime';
@@ -22,7 +22,7 @@ function wrap(platform: string, fn: () => Promise<SourceResult>): Promise<Source
 
 export async function fetchAllListings(event: CatalogEvent, qty = 2): Promise<AggregatedResult> {
   const results = await Promise.all([
-    wrap('Ticketmaster', () => fromTicketmaster(event, qty)),
+    // wrap('Ticketmaster', () => fromTicketmaster(event, qty)), // disabled: blocked by TM EPS
     wrap('VividSeats',  () => fromVividSeats(event, qty)),
     wrap('TickPick',    () => fromTickPick(event, qty)),
     wrap('Gametime',    () => fromGametime(event, qty)),
