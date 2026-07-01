@@ -103,5 +103,5 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
   }
 
   listings.sort((a, b) => a.all_in_price - b.all_in_price);
-  return { platform: 'Gametime', listings: [listings[0]] };
+  return { platform: 'Gametime', listings: listings.slice(0, 5) };
 }

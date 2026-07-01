@@ -62,7 +62,7 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
 
     const items = payload?.listings ?? [];
     if (items.length === 0) {
-      return { platform: 'TickPick', listings: [], error: 'No listings found' };
+      return { platform: 'TickPick', listings: [], error: `[DEBUG] API returned 0 raw listings. eventId=${eventId}` };
     }
 
     const listings: TicketListing[] = [];
@@ -70,8 +70,6 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       const price = Number(t.p ?? 0);
       if (!price) continue;
       const quantity = Number(t.q ?? 1);
-      // Filter by total available tickets (q) rather than exact-match sp list,
-      // so a listing of 4 tickets shows up when the user requests 2.
       if (quantity < qty) continue;
       listings.push({
         platform: 'TickPick',
@@ -90,7 +88,7 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
     }
 
     listings.sort((a, b) => a.all_in_price - b.all_in_price);
-    return { platform: 'TickPick', listings: [listings[0]] };
+    return { platform: 'TickPick', listings: listings.slice(0, 5) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { platform: 'TickPick', listings: [], error: `Scraper error: ${msg}` };

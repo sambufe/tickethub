@@ -97,7 +97,7 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
     }
 
     listings.sort((a, b) => a.all_in_price - b.all_in_price);
-    return { platform: 'Vivid Seats', listings: [listings[0]] };
+    return { platform: 'Vivid Seats', listings: listings.slice(0, 5) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { platform: 'Vivid Seats', listings: [], error: `Scraper error: ${msg}` };
