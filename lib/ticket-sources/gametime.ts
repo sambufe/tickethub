@@ -77,11 +77,10 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
 
   const listings: TicketListing[] = [];
   for (const t of items) {
-    // `lots` lists the exact quantities a buyer may purchase from this listing.
-    // A listing with lots=[1,3] can be bought as 1 or 3 tickets, NOT as 2.
-    // Gametime does not allow partial purchases unless the seller opted in via splits.
-    const canBuy = t.lots.includes(qty);
-    if (!canBuy) continue;
+    // Use total seat count as the quantity check rather than the exact-match lots list.
+    // lots=[1,3] means "buy 1 or 3" but we show the listing if seats.length >= qty
+    // so users see available inventory even when exact splits aren't perfectly aligned.
+    if (t.seats.length < qty) continue;
 
     const listed_price = t.price.prefee / 100;
     const all_in_price = t.price.total / 100;

@@ -101,8 +101,9 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
 
     const listings: TicketListing[] = [];
     for (const item of items) {
-      // availableQuantities lists the exact quantities a buyer may purchase (like TickPick's sp / Gametime's lots)
-      if (!item.availableQuantities.includes(qty)) continue;
+      // Filter by total available tickets rather than exact-match purchase quantities,
+      // so a listing of 4 tickets shows up when the user requests 2.
+      if (item.availableTickets < qty) continue;
       const price = item.rawPrice;
       if (!price) continue;
 

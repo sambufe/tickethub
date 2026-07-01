@@ -70,13 +70,9 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       const price = Number(t.p ?? 0);
       if (!price) continue;
       const quantity = Number(t.q ?? 1);
-      // `sp` lists the exact quantities a buyer may purchase from this listing.
-      // A listing with q=3 and sp=[3,1] can be bought as 3 or 1 — NOT as 2.
-      // TickPick does not allow partial purchases unless the seller opted in via splits.
-      // If sp is absent, require an exact quantity match as a safe default.
-      const allowedQtys = t.sp ?? [];
-      const canBuy = allowedQtys.length > 0 ? allowedQtys.includes(qty) : quantity === qty;
-      if (!canBuy) continue;
+      // Filter by total available tickets (q) rather than exact-match sp list,
+      // so a listing of 4 tickets shows up when the user requests 2.
+      if (quantity < qty) continue;
       listings.push({
         platform: 'TickPick',
         section: normalizeSection(String(t.sid ?? t.lid ?? '')),

@@ -20,6 +20,13 @@ function wrap(platform: string, fn: () => Promise<SourceResult>): Promise<Source
   });
 }
 
+const PARKING_KEYWORDS = ['parking', 'garage', 'lot', 'park & ride', 'shuttle'];
+
+function isParkingListing(l: TicketListing): boolean {
+  const s = (l.section + ' ' + l.row).toLowerCase();
+  return PARKING_KEYWORDS.some((k) => s.includes(k));
+}
+
 export async function fetchAllListings(event: CatalogEvent, qty = 2): Promise<AggregatedResult> {
   const results = await Promise.all([
     // wrap('Ticketmaster', () => fromTicketmaster(event, qty)), // disabled: blocked by TM EPS
@@ -32,6 +39,7 @@ export async function fetchAllListings(event: CatalogEvent, qty = 2): Promise<Ag
 
   const listings: TicketListing[] = results
     .flatMap((s) => s.listings)
+    .filter((l) => !isParkingListing(l))
     .sort((a, b) => a.all_in_price - b.all_in_price);
 
   return { listings, sources: results };
