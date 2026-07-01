@@ -5,7 +5,7 @@ import { fetchListings as fromVividSeats } from './vividseats';
 import { fetchListings as fromTickPick } from './tickpick';
 import { fetchListings as fromGametime } from './gametime';
 import { fetchListings as fromStubHub } from './stubhub';
-import { fetchListings as fromSeatGeek } from './seatgeek';
+// import { fetchListings as fromSeatGeek } from './seatgeek'; // disabled: no active integration
 
 export interface AggregatedResult {
   listings: TicketListing[];
@@ -27,7 +27,7 @@ export async function fetchAllListings(event: CatalogEvent, qty = 2): Promise<Ag
     wrap('TickPick',    () => fromTickPick(event, qty)),
     wrap('Gametime',    () => fromGametime(event, qty)),
     wrap('StubHub',     () => fromStubHub(event, qty)),
-    wrap('SeatGeek',    () => fromSeatGeek(event, qty)),
+    // wrap('SeatGeek',    () => fromSeatGeek(event, qty)), // disabled: no active integration
   ]);
 
   const listings: TicketListing[] = results
