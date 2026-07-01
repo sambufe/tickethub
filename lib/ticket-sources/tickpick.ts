@@ -71,10 +71,12 @@ export async function fetchListings(event: CatalogEvent, qty = 2): Promise<Sourc
       if (!price) continue;
       const quantity = Number(t.q ?? 1);
       if (quantity < qty) continue;
+      const row = String(t.r ?? '').trim();
       listings.push({
         platform: 'TickPick',
         section: normalizeSection(String(t.sid ?? t.lid ?? '')),
-        row: String(t.r ?? '').trim(),
+        // "VP" is TickPick's "Value Pick" badge, not a physical seat row
+        row: row === 'VP' ? '' : row,
         quantity,
         listed_price: price,
         estimated_fees: 0,

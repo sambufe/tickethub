@@ -1,14 +1,15 @@
 import { NextRequest } from 'next/server';
 import { getDb } from '@/lib/db';
 import { CatalogEvent, parsePlatformUrls } from '@/lib/types';
-import { fetchListings as fetchTM } from '@/lib/ticket-sources/ticketmaster';
-import { fetchListings as fetchSG } from '@/lib/ticket-sources/seatgeek';
 import { fetchListings as fetchSH } from '@/lib/ticket-sources/stubhub';
 import { fetchListings as fetchVS } from '@/lib/ticket-sources/vividseats';
 import { fetchListings as fetchAXS } from '@/lib/ticket-sources/axs';
 import { fetchListings as fetchGT } from '@/lib/ticket-sources/gametime';
 import { fetchListings as fetchTP } from '@/lib/ticket-sources/tickpick';
-import type { SourceResult } from '@/lib/ticket-sources/types';
+import type { SourceResult, TicketListing } from '@/lib/ticket-sources/types';
+
+const disabledFetcher = async (): Promise<SourceResult> =>
+  ({ platform: '', listings: [] as TicketListing[], error: 'Scraper disabled' });
 
 function verifyAdmin(req: NextRequest): boolean {
   return req.headers.get('x-admin-password') === process.env.ADMIN_PASSWORD;
@@ -94,8 +95,8 @@ export async function GET(
   };
 
   const defs: PlatformDef[] = [
-    { key: 'ticketmaster', platform: 'Ticketmaster', hasData: !!event.ticketmaster_id, url: urls.ticketmaster ?? null, fetcher: fetchTM },
-    { key: 'seatgeek', platform: 'SeatGeek', hasData: !!event.seatgeek_id, url: urls.seatgeek ?? null, fetcher: fetchSG },
+    { key: 'ticketmaster', platform: 'Ticketmaster', hasData: false, url: urls.ticketmaster ?? null, fetcher: disabledFetcher },
+    { key: 'seatgeek', platform: 'SeatGeek', hasData: false, url: urls.seatgeek ?? null, fetcher: disabledFetcher },
     { key: 'stubhub', platform: 'StubHub', hasData: true, url: urls.stubhub ?? null, fetcher: fetchSH },
     { key: 'vividseats', platform: 'Vivid Seats', hasData: !!urls.vividseats, url: urls.vividseats ?? null, fetcher: fetchVS },
     { key: 'axs', platform: 'AXS', hasData: !!urls.axs, url: urls.axs ?? null, fetcher: fetchAXS },
